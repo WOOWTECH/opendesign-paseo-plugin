@@ -135,8 +135,15 @@ function load(options) {
   if (pointer.version !== 1 || pointer.pluginId !== MANAGED_PLUGIN_ID) fail('PLUGIN_TRANSACTION_INVALID_JOURNAL');
   const files = journalFor(options, pointer.id); directory(files.work);
   const receipt = readJson(files.receipt);
+  const work = identity(directory(files.work));
+  // st_dev is a mount-local number: a new Pod can mount the same PVC inode
+  // under a different device number. Terminal receipts never authorize any
+  // rollback/write, so keep the persistent inode fence without blocking boot.
+  // Unfinished receipts still require the full identity and ownership proof.
+  const sameWork = receipt && (sameIdentity(receipt.work, work) ||
+    terminal.has(receipt.phase) && typeof receipt.work?.dev === 'string' && /^[0-9]{1,20}$/.test(receipt.work.dev) && receipt.work?.ino === work?.ino && work !== null);
   if (!receipt || receipt.version !== 1 || receipt.id !== pointer.id || receipt.pluginId !== MANAGED_PLUGIN_ID ||
-      !phases.has(receipt.phase) || !sameIdentity(receipt.work, identity(directory(files.work))) ||
+      !phases.has(receipt.phase) || !sameWork ||
       hash(JSON.stringify(canonical(receipt.previousRecord))) !== receipt.previousRecordDigest) fail('PLUGIN_TRANSACTION_INVALID_JOURNAL');
   if (receipt.expectedRecordDigest && hash(JSON.stringify(canonical(receipt.expectedRecord))) !== receipt.expectedRecordDigest) fail('PLUGIN_TRANSACTION_INVALID_JOURNAL');
   if (receipt.intermediateRecords && (!Array.isArray(receipt.intermediateRecords) || receipt.intermediateRecords.length > 4 ||

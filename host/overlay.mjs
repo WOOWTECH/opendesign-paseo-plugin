@@ -15,13 +15,18 @@ export function patchServer(source,packageRoot){
  source=`import { installBridgeBodyParser, registerPaseoBridge } from ${url};\nimport { recoverManagedPaseoPlugin } from './plugins/installer.js';\n`+source;
  source=replaceOnce(source,"    app.use(express.json({ limit: '4mb' }));","    installBridgeBodyParser(app, { allowedOrigins: configuredAllowedOrigins() });\n    app.use(express.json({ limit: '4mb' }));");
  source=replaceOnce(source,'    if (fs.existsSync(staticDir)) {',`    let woowPaseoBridge = { start() {}, disarm() {}, async shutdown() {} };
+    let woowPaseoStartupPhase = 'recovery';
     try {
         await recoverManagedPaseoPlugin(db, PLUGIN_REGISTRY_ROOTS, PLUGIN_LOCKFILE_PATH);
+        woowPaseoStartupPhase = 'registration';
         woowPaseoBridge = registerPaseoBridge(app, { dataDir: RUNTIME_DATA_DIR, home: process.env.HOME, port: resolvedPort || port, allowedOrigins: configuredAllowedOrigins(), getInstalledPluginRecord: () => getInstalledPlugin(db, 'woowtech-paseo'), mcpConfig: await import('./mcp-config.js') });
-    } catch {
-        console.warn('[woow-paseo] Managed plugin recovery is blocked; original OpenDesign remains available');
-        const blocked = (_req, res) => { res.setHeader('Cache-Control', 'private, no-store'); res.setHeader('Referrer-Policy', 'no-referrer'); return res.status(503).json({ error: { code: 'PLUGIN_TRANSACTION_RECOVERY_CONFLICT' } }); };
-        app.get('/api/paseo-bridge', blocked); app.post('/api/paseo-bridge', blocked);
+    } catch (error) {
+        const recoveryCodes = new Set(['PLUGIN_TRANSACTION_ABORTED', 'PLUGIN_TRANSACTION_BUSY', 'PLUGIN_TRANSACTION_CONFLICT', 'PLUGIN_TRANSACTION_INVALID_JOURNAL', 'PLUGIN_TRANSACTION_INVALID_OPTIONS', 'PLUGIN_TRANSACTION_INVALID_RECORD', 'PLUGIN_TRANSACTION_LOCK_FAILED', 'PLUGIN_TRANSACTION_RECORD_SCOPE', 'PLUGIN_TRANSACTION_RECOVERY_CONFLICT', 'PLUGIN_TRANSACTION_UNSAFE_PATH']);
+        const code = woowPaseoStartupPhase === 'recovery' ? (recoveryCodes.has(error?.code) ? error.code : 'PLUGIN_TRANSACTION_RECOVERY_FAILED') : 'PASEO_BRIDGE_REGISTRATION_FAILED';
+        console.warn('[woow-paseo] ' + woowPaseoStartupPhase + ' blocked (' + code + '); original OpenDesign remains available');
+        const blocked = (_req, res) => { res.setHeader('Cache-Control', 'private, no-store'); res.setHeader('Referrer-Policy', 'no-referrer'); return res.status(503).json({ error: { code, phase: woowPaseoStartupPhase } }); };
+        for (const route of ['/api/paseo-bridge', '/paseo/setup', '/paseo/entry.js', '/paseo/assets/setup.js', '/paseo/assets/setup.css']) app.get(route, blocked);
+        app.post('/api/paseo-bridge', blocked);
     }
     if (fs.existsSync(staticDir)) {`);
  source=replaceOnce(source,'                daemonUrl = url;','                daemonUrl = url;\n                woowPaseoBridge.start();');

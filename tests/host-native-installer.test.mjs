@@ -163,6 +163,37 @@ nativeTest('first installation also uses real validation, copy, SQLite upsert an
   assert.equal(f.journal().previousTree, null); assert.equal(f.journal().phase, 'committed');
 });
 
+nativeTest('native startup accepts a committed receipt after PVC remount changes st_dev, without rewriting the receipt or DB', async t => {
+  const f = await fixture(t); assert.equal((await f.run()).at(-1).kind, 'success');
+  const journal = f.journal(), receiptFile = path.join(journal.work, 'receipt.json');
+  const saved = JSON.parse(fs.readFileSync(receiptFile));
+  // Production: work ino remained 1513; its device changed 16816 -> 16960.
+  saved.work.dev = String(BigInt(saved.work.dev) + 144n); write(receiptFile, json(saved));
+  const receipt = fs.readFileSync(receiptFile), receiptStat = fs.statSync(receiptFile), row = f.row(), locks = fs.readFileSync(f.lockfilePath), inode = fs.statSync(f.destination).ino;
+  const transaction = f.db.transaction;
+  f.db.transaction = () => assert.fail('Terminal receipt must not authorize DB writes');
+  f.control.onUpsert = () => assert.fail('Terminal receipt must not restore a DB row');
+  let result;
+  try { result = await f.installer.recoverManagedPaseoPlugin(f.db, f.options.roots, f.lockfilePath); }
+  finally { f.db.transaction = transaction; }
+  assert.deepEqual(result, { recovered: false }); assert.deepEqual(fs.readFileSync(receiptFile), receipt); assert.equal(fs.statSync(receiptFile).ino, receiptStat.ino); assert.equal(fs.statSync(receiptFile).mtimeMs, receiptStat.mtimeMs);
+  assert.deepEqual(f.row(), row); assert.deepEqual(fs.readFileSync(f.lockfilePath), locks); assert.equal(fs.statSync(f.destination).ino, inode); assert.equal(f.read(), 'new code bytes');
+});
+
+nativeTest('PVC device relaxation never accepts a replaced work inode or an unfinished native receipt', async t => {
+  for (const failure of ['inode', 'pending', 'invalid-device']) {
+    const f = await fixture(t); assert.equal((await f.run()).at(-1).kind, 'success');
+    const journal = f.journal(), receiptFile = path.join(journal.work, 'receipt.json'), saved = JSON.parse(fs.readFileSync(receiptFile));
+    saved.work.dev = String(BigInt(saved.work.dev) + 144n);
+    if (failure === 'inode') saved.work.ino = String(BigInt(saved.work.ino) + 1n);
+    else if (failure === 'pending') saved.phase = 'record-writing';
+    else saved.work.dev = 'malformed-device';
+    write(receiptFile, json(saved)); const receipt = fs.readFileSync(receiptFile), row = f.row();
+    await assert.rejects(f.installer.recoverManagedPaseoPlugin(f.db, f.options.roots, f.lockfilePath), { code: 'PLUGIN_TRANSACTION_INVALID_JOURNAL' });
+    assert.deepEqual(fs.readFileSync(receiptFile), receipt); assert.deepEqual(f.row(), row); assert.equal(f.read(), 'new code bytes');
+  }
+});
+
 for (const change of ['unsupported manifest version', 'modified SKILL.md']) nativeTest(`actual patched installer rejects ${change} before publication, preserving the working plugin and desired state`, async t => {
   const f = await fixture(t); let published = false;
   if (change === 'unsupported manifest version') {
