@@ -139,13 +139,13 @@ test('bridge status uses GET without redirects and never puts auth into URL', as
   await assert.rejects(bridgeRead('https://example.test', { username: 'u', password: 'p' }, 'status', {}, async () => { throw new Error('raw-token'); }), { code: 'ACCEPTANCE_BRIDGE_UNREACHABLE' });
 });
 
-function sdkFixture({ fresh = true, archiveFails = false, firstStatus = 'idle', providerError = false } = {}) {
+function sdkFixture({ fresh = true, archiveFails = false, firstStatus = 'idle', providerError = false, provider = 'claude', modes = [{ id: 'default' }], defaultModeId = 'default' } = {}) {
   const calls = [], marker = 'OD_TEST_MARKER';
   let turn = 1;
   return {
     calls, marker,
     async listProviderModels(provider) { calls.push(['catalog', provider]); return { models: [{ id: 'test-model', isDefault: true }] }; },
-    async getProvidersSnapshot() { return { entries: [{ provider: 'claude', defaultModeId: 'default', modes: [{ id: 'default' }] }] }; },
+    async getProvidersSnapshot() { return { entries: [{ provider, defaultModeId, modes }] }; },
     async createWorkspace(options) { calls.push(['workspace', options]); return { workspace: { id: 'test-workspace' } }; },
     async createAgent(options) { calls.push(['create', options]); return { id: 'owned-acceptance-agent' }; },
     async waitForFinish() { return { status: firstStatus }; },
@@ -175,6 +175,51 @@ test('two SDK turn calls accept identical text only with a new timeline cursor; 
   assert.equal(client.calls.find(call => call[0] === 'create')[1].modeId, 'default');
   assert.equal(JSON.stringify(result).includes(client.marker), false);
   assert.equal(result.transcript.length, 2);
+});
+
+test('actual Native SDK Pi snapshot with modes[] permits omitted mode and confirms two fresh turns plus own-agent archive', async () => {
+  for (const modes of [undefined, {}, { pi: null }, { pi: '' }]) {
+    const client = sdkFixture({ provider: 'pi', modes: [], defaultModeId: null });
+    const catalog = await catalogEvidence(client, 'pi');
+    assert.equal(catalog.passed, true);
+    assert.equal(catalog.modeCount, 0);
+    const settings = { ...config, signedInProviders: ['pi'], models: { pi: 'test-model' }, modes };
+    const result = await testConversation(client, settings, 'pi', { marker: client.marker });
+    assert.equal(result.passed, true);
+    assert.equal(result.firstReply, true);
+    assert.equal(result.followup, true);
+    assert.equal(result.freshCursor, true);
+    assert.equal(result.cleanup.archived, true);
+    const created = client.calls.filter(call => call[0] === 'create');
+    assert.equal(created.length, 1);
+    assert.equal(Object.hasOwn(created[0][1], 'modeId'), false);
+    assert.equal(created[0][1].provider, 'pi');
+    assert.equal(created[0][1].model, 'test-model');
+    assert.equal(client.calls.filter(call => call[0] === 'followup').length, 1);
+    assert.deepEqual(client.calls.filter(call => call[0] === 'archive'), [['archive', 'owned-acceptance-agent']]);
+    assert.equal(result.transcript.length, 2);
+    assert.equal(JSON.stringify(result).includes(client.marker), false);
+  }
+});
+
+test('empty modes reject explicit unsupported selection; existing modes and missing provider/modes still fail before writes', async () => {
+  const cases = [
+    { provider: 'pi', modes: [], configured: 'unsupported-mode' },
+    { provider: 'pi', modes: [], configured: false },
+    { provider: 'claude', modes: [{ id: 'default' }], configured: 'unsupported-mode' },
+    { provider: 'codex', modes: [{ id: 'default' }], configured: 'unsupported-mode' },
+    { provider: 'pi', entries: [] },
+    { provider: 'pi', entries: [{ provider: 'pi' }] },
+  ];
+  for (const item of cases) {
+    const client = sdkFixture({ provider: item.provider, modes: item.modes });
+    if (item.entries) client.getProvidersSnapshot = async () => ({ entries: item.entries });
+    const settings = { ...config, signedInProviders: [item.provider], models: { [item.provider]: 'test-model' }, modes: { [item.provider]: item.configured } };
+    const result = await testConversation(client, settings, item.provider, { marker: client.marker });
+    assert.equal(result.code, 'ACCEPTANCE_INVALID_MODE');
+    assert.equal(result.passed, false);
+    assert.equal(client.calls.some(call => ['workspace', 'create', 'archive', 'followup'].includes(call[0])), false);
+  }
 });
 
 test('a stale assistant in a constant-size timeline cannot count as follow-up', async () => {

@@ -1,6 +1,6 @@
 import { providers, safeError } from './runtime-context.mjs';
 
-const id = value => typeof value === 'string' && value.length <= 300 && /^[A-Za-z0-9_.:/@+ -]+$/.test(value) ? value : null;
+const id = value => typeof value === 'string' && value.length <= 300 && /^[A-Za-z0-9_.:/@+ \[\]-]+$/.test(value) ? value : null;
 const date = value => typeof value === 'string' && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : null;
 const code = value => value ? safeError({ code: value }).code : null;
 const secretValue = /(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|authorization|bearer)\s*[=:]\s*["']?[^\s"',;]+/gi;
@@ -14,6 +14,7 @@ export function redactText(value, env = {}) {
     .replace(secretValue, '[redacted]')
     .replace(/-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----/g, '[redacted]');
 }
+const plainLabel = (value, fallback, env) => redactText(typeof value === 'string' && value.length ? value : fallback, env).replace(/[\x00-\x1f\x7f]/g, ' ').slice(0, 300);
 
 export function publicProvider(row = {}, provider = row.provider) {
   return { provider, label: provider === 'claude' ? 'Claude Code' : provider === 'codex' ? 'Codex' : 'Pi',
@@ -51,8 +52,8 @@ export function publicStatus(value = {}) {
 
 export function publicModels(value = {}, env = {}) {
   return { ...publicProvider(value), models: (Array.isArray(value.models) ? value.models : []).slice(0, 2000).map(model => ({
-    id: id(model.id), label: redactText(id(model.label) || id(model.id), env), isDefault: model.isDefault === true, defaultThinkingOptionId: id(model.defaultThinkingOptionId),
-    thinkingOptions: (Array.isArray(model.thinkingOptions) ? model.thinkingOptions : []).slice(0, 100).map(option => ({ id: id(option.id), label: redactText(id(option.label) || id(option.id), env), isDefault: option.isDefault === true })),
+    id: id(model.id), label: plainLabel(model.label, id(model.id), env), isDefault: model.isDefault === true, defaultThinkingOptionId: id(model.defaultThinkingOptionId),
+    thinkingOptions: (Array.isArray(model.thinkingOptions) ? model.thinkingOptions : []).slice(0, 100).map(option => ({ id: id(option.id), label: plainLabel(option.label, id(option.id), env), isDefault: option.isDefault === true })),
   })).filter(model => model.id) };
 }
 

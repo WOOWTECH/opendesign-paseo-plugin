@@ -26,9 +26,9 @@ export async function connectToDaemon() {
  let turn=1, marker='';
  return {
   listProviderModels:async()=>({models:[{id:'fixture-model',isDefault:true}]}),
-  getProvidersSnapshot:async()=>({entries:['claude','codex','pi'].map(provider=>({provider,defaultModeId:'default',modes:[{id:'default'}]}))}),
+  getProvidersSnapshot:async()=>({entries:['claude','codex','pi'].map(provider=>({provider,defaultModeId:provider==='pi'?null:'default',modes:provider==='pi'?[]:[{id:'default'}]}))}),
   createWorkspace:async()=>({workspace:{id:'fixture-workspace'}}),
-  createAgent:async options=>{marker=options.initialPrompt.match(/Remember ([A-Za-z0-9_]+)\\./)[1];return{id:'fixture-owned-agent'};},
+  createAgent:async options=>{if(options.provider==='pi'&&Object.hasOwn(options,'modeId'))throw new Error('Pi fixture has no supported modes');marker=options.initialPrompt.match(/Remember ([A-Za-z0-9_]+)\\./)[1];return{id:'fixture-owned-agent'};},
   waitForFinish:async()=>({status:'idle'}),
   fetchAgentTimeline:async()=>({entries:[{turnId:'turn-'+turn,seqStart:turn,seqEnd:turn,timestamp:'2026-10-12T00:00:0'+turn+'Z',item:{type:'assistant_message',text:marker}}]}),
   sendAgentMessage:async()=>{turn++;},
@@ -58,6 +58,7 @@ test('SDK models and chat use target/config only, with absolute root override an
   const models = await invoke(f, ['--phase', 'models']);
   assert.equal(models.passed, true);
   assert.equal(models.providers.length, 3);
+  assert.equal(models.providers.find(row => row.provider === 'pi').modeCount, 0);
   fs.unlinkSync(path.join(f.root, 'sdk-opened'));
   const denied = await invoke(f, ['--phase', 'chat', '--allow-mutation']);
   assert.equal(denied.code, 'ACCEPTANCE_AUTHORIZED_TARGET_REQUIRED');
@@ -66,6 +67,14 @@ test('SDK models and chat use target/config only, with absolute root override an
   const chat = await invoke(f, ['--phase', 'chat', '--allow-mutation']);
   assert.equal(chat.passed, true, JSON.stringify(chat));
   assert.equal(chat.providers[0].cleanup.archived, true);
+  f.write('acceptance-config.json', { ...f.config, signedInProviders: ['pi'], models: { pi: 'fixture-model' }, modes: { pi: '' } });
+  const pi = await invoke(f, ['--phase', 'chat', '--allow-mutation']);
+  assert.equal(pi.passed, true, JSON.stringify(pi));
+  assert.equal(pi.providers[0].provider, 'pi');
+  assert.equal(pi.providers[0].firstReply, true);
+  assert.equal(pi.providers[0].followup, true);
+  assert.equal(pi.providers[0].freshCursor, true);
+  assert.equal(pi.providers[0].cleanup.archived, true);
   assert.equal(fs.existsSync(path.join(f.root, 'browser-auth.json')), false);
   assert.equal(fs.statSync(path.join(f.root, 'acceptance-config.json')).mode & 0o777, 0o600);
 });

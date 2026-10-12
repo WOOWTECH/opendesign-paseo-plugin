@@ -198,14 +198,18 @@ export async function verifyConversation(client, config, provider, { target, mar
     const snapshot = await client.getProvidersSnapshot();
     const entry = snapshot.entries?.find(row => row.provider === provider);
     const model = config.models?.[provider] || result.models.find(model => model.isDefault)?.id || result.models[0]?.id;
-    const modeId = config.modes?.[provider] || entry?.defaultModeId;
+    const configuredMode = config.modes?.[provider];
+    const hasConfiguredMode = configuredMode !== undefined && configuredMode !== null && configuredMode !== '';
+    const modeId = hasConfiguredMode ? configuredMode : entry?.modes?.length ? entry.defaultModeId : undefined;
     if (!model || !result.models.some(item => item.id === model)) fail('ACCEPTANCE_INVALID_MODEL');
-    if (!modeId || !entry?.modes?.some(mode => mode.id === modeId)) fail('ACCEPTANCE_INVALID_MODE');
+    if (!entry || !Array.isArray(entry.modes) ||
+        hasConfiguredMode && typeof configuredMode !== 'string' ||
+        (entry.modes.length ? !modeId || !entry.modes.some(mode => mode?.id === modeId) : hasConfiguredMode)) fail('ACCEPTANCE_INVALID_MODE');
     const workspace = await client.createWorkspace({ source: { kind: 'directory', path: cwd } });
     if (!workspace.workspace?.id) fail('ACCEPTANCE_WORKSPACE_FAILED');
     row.selectionConfirmed = true;
     await usingAcceptanceAgent(client, {
-      provider, model, modeId, cwd, workspaceId: workspace.workspace.id,
+      provider, model, ...(modeId ? { modeId } : {}), cwd, workspaceId: workspace.workspace.id,
       title: `OpenDesign Paseo acceptance ${provider} ${marker}`,
       labels: { 'opendesign-paseo-acceptance': 'true' },
       initialPrompt: `Connection acceptance only. Do not use tools or edit files. Remember ${marker}. Reply with exactly ${marker}.`,

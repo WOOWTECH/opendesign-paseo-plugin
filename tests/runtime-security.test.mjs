@@ -8,10 +8,14 @@ import { PassThrough } from 'node:stream';
 import { runtimeContext, sourceRoot } from '../src/runtime-context.mjs';
 import { callRuntime } from '../src/runtime-client.mjs';
 import { createAuthFlow, officialAuthorizationUrl } from '../src/auth-flow.mjs';
-import { publicStatus, publicAcceptance, publicChat, redactText } from '../src/public-dto.mjs';
+import { publicStatus, publicAcceptance, publicModels, publicChat, redactText } from '../src/public-dto.mjs';
 import { ensureNativeOnboarding, onboardingRecord } from '../src/onboarding.mjs';
 import { executeRuntimeJob } from '../src/runtime-worker.mjs';
 import { providerEnvironment } from '../src/provider-install.mjs';
+import {validateAction} from '../host/security.mjs';
+import {Client} from '@modelcontextprotocol/sdk/client/index.js';
+import {InMemoryTransport} from '@modelcontextprotocol/sdk/inMemory.js';
+import {createNativeMcp} from '../bin/mcp.mjs';
 
 function fixture(t, env = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'od-security-')), home = path.join(root, 'home'), dataDir = path.join(root, 'data');
@@ -65,6 +69,34 @@ test('public DTO excludes raw paths/auth state and chat redacts pairing/provider
   const chat = publicChat({ agentId: 'owned_agent', provider: 'codex', model: 'model', status: 'completed', reply: 'tenant-secret-fixture https://app.paseo.sh/?ticket=PAIR sk-1234567890abcdefghijklmnopqrstuvwxyz api_key=raw-secret' }, { OPENAI_API_KEY: 'tenant-secret-fixture' });
   for (const secret of ['tenant-secret-fixture', '?ticket', 'sk-123456', 'raw-secret']) assert.equal(chat.reply.includes(secret), false);
   assert.equal(redactText('Ordinary discussion of API tokens'), 'Ordinary discussion of API tokens');
+});
+
+test('official bracketed model variants survive worker/repeated catalogs and body forwarding with plain redacted labels',async t=>{
+  const context=fixture(t,{OPENROUTER_API_KEY:'tenant-model-label-fixture'}),variant='claude-opus-4-8[1m]';
+  const raw={provider:'claude',models:[
+    {id:'claude-opus-4-8',label:'Claude Opus 4.8'},
+    {id:variant,label:'Claude Opus 4.8（1M context）— 官方 tenant-model-label-fixture',defaultThinkingOptionId:'medium',thinkingOptions:[{id:'medium',label:'中等（建議） tenant-model-label-fixture',isDefault:true}]},
+  ]};
+  const receipt=await executeRuntimeJob(context,{action:'models',input:{provider:'claude'}},{listModels:async()=>raw});
+  for(const value of [receipt,publicModels(receipt,context.env)]){
+    assert.deepEqual(value.models.map(model=>model.id),['claude-opus-4-8',variant]);
+    assert.equal(value.models[1].label,'Claude Opus 4.8（1M context）— 官方 [redacted]');
+    assert.equal(value.models[1].thinkingOptions[0].label,'中等（建議） [redacted]');
+    assert.equal(JSON.stringify(value).includes('tenant-model-label-fixture'),false);
+  }
+  const body={action:'acceptance',providers:['claude'],models:{claude:receipt.models[1].id},modes:{claude:'default'}};
+  assert.deepEqual(validateAction(body),body);
+  let forwarded;
+  const server=createNativeMcp({models:async()=>receipt,createChat:async input=>{forwarded=input;return{provider:input.provider,model:input.model,status:'completed',reply:'Synthetic test only'};}},{env:context.env});
+  const client=new Client({name:'bracketed-model-fixture',version:'1'}),[left,right]=InMemoryTransport.createLinkedPair();
+  t.after(async()=>{await client.close();await server.close();});await Promise.all([server.connect(left),client.connect(right)]);
+  const listing=await client.listTools();assert.equal(listing.tools.find(tool=>tool.name==='paseo_createchat').inputSchema.properties.model.type,'string');
+  const catalog=JSON.parse((await client.callTool({name:'paseo_models',arguments:{provider:'claude'}})).content[0].text);
+  const response=await client.callTool({name:'paseo_createchat',arguments:{provider:'claude',model:catalog.models[1].id,message:'Synthetic forwarding check'}});
+  assert.notEqual(response.isError,true);assert.equal(forwarded.model,variant);assert.equal(JSON.parse(response.content[0].text).model,variant);
+  const chat=publicChat({agentId:'owned_variant_fixture',provider:'claude',model:variant,status:'completed',reply:'Synthetic test only'},context.env);assert.equal(chat.model,variant);
+  const verified=publicAcceptance({passed:false,providers:[{provider:'claude',model:variant,passed:false}]});assert.equal(verified.providers[0].model,variant);
+  const invalid=publicModels({provider:'claude',models:[{id:'claude\ninvalid'},{id:'claude<script>'},{id:'x'.repeat(301)}]});assert.deepEqual(invalid.models,[]);
 });
 
 test('protected acceptance retains a failed Pi row through worker and repeated status DTO boundaries, including redacted errors', async t => {
