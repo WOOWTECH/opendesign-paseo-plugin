@@ -94,3 +94,13 @@ test('captured current Omnigent sources pass real six-file install/boot/reuse an
   for(const [tag] of originalHtml.matchAll(/<(?:script|link)\b[^>]*(?:src|href)="[^"]+"[^>]*>/g))assert.ok(patchedHtml.includes(tag));
   assert.ok(patchedHtml.includes('/paseo/entry.js'));
  });
+
+test('pinned upstream clean image requires its complete GUI and daemon fingerprint', async () => {
+ const {selectCompatibilityProfile}=await import('../bin/preload.mjs');
+ const compatibility=JSON.parse(fs.readFileSync(new URL('../host/compatibility.json',import.meta.url),'utf8'));
+ const profile=compatibility.profiles.find(p=>p.id==='upstream-od-0.24.1-clean');
+ assert.ok(profile);
+ assert.equal(selectCompatibilityProfile(compatibility,profile.files).id,profile.id);
+ const unknown={...profile.files,'apps/web/out/index.html':'0'.repeat(64)};
+ assert.throws(()=>selectCompatibilityProfile(compatibility,unknown));
+});
