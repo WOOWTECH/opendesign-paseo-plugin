@@ -32,6 +32,22 @@
         "apps/daemon/dist/plugins/lockfile.js": "b68c48f97225c6abbf7b0941b7b3b479d879433a699e674300d02d054d3f811e",
         "apps/web/out/index.html": "fe91b68d81fee458597f50973aff0af496d7f6c6011c5e8c7cf50ec5cf5eb3f6"
       }
+    },
+    {
+      "id": "upstream-od-0.24.1-clean",
+      "label": "Pinned upstream OpenDesign 0.24.1 clean image",
+      "imageSha256": "587a992857d0f8b71011e4bc55c5851e33ef9fc4c169fc17e6447700ac428f22",
+      "openDesignImageVersion": "0.24.1",
+      "daemonPackageVersion": "0.23.1",
+      "adapterProtocolVersion": 1,
+      "files": {
+        "apps/daemon/dist/server.js": "57b001ded470fc56f20d180544173f20690992aafd79542ac490adeef50911a4",
+        "apps/daemon/dist/mcp-config.js": "76d67f054a1595779d463555bd1ddab43d5323a5b4428f8af7d4dcfab9f9ffe9",
+        "apps/daemon/dist/routes/plugins/index.js": "f0693b55f53721ac834d8b1f87f67c79c5021e593988420cafa9da45231e97b2",
+        "apps/daemon/dist/plugins/installer.js": "4b3624057c7817fce73f316e4356d477649026d78c3ef5b4b5e207a77ea00f43",
+        "apps/daemon/dist/plugins/lockfile.js": "b68c48f97225c6abbf7b0941b7b3b479d879433a699e674300d02d054d3f811e",
+        "apps/web/out/index.html": "a8f07c8e431fe1f6fc4439b90b21b88d97592bb210bf1327dbe1069b4be7c2a6"
+      }
     }
   ]
 }

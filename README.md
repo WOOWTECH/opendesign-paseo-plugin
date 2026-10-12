@@ -62,3 +62,5 @@ npm audit --omit=dev --prefix vendor/pi-paseo/runtime
 - [WOOWTECH Pi Paseo runtime](https://github.com/WOOWTECH/pi-paseo-plugin)：只沿用固定版本的受控 runtime，未執行 Pi Web 安裝器。
 
 MIT 授權；來源版本見 `vendor/pi-paseo/PROVENANCE.json`。
+
+Claude Code／Codex 完全不存在時的 GUI 下載驗證與前置條件：[cold-install-verification.md](docs/cold-install-verification.md)。
