@@ -32,6 +32,9 @@
     "LICENSE",
     "SKILL.md",
     "open-design.json",
+    "image",
+    "docs/cold-install-verification.md",
+    "docs/preinstalled-cli-image.md",
     "docs/validation.md"
   ]
 }

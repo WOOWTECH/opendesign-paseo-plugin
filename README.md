@@ -18,7 +18,7 @@
 
 OpenDesign 原生插件安裝器不會執行 npm 安裝或新增伺服器路由。本套件包含一個小型主機適配層，須先在受支援的 OpenDesign 容器中安裝一次。適配層沿用原生驗證、插件記錄、MCP 設定與專案 API，不另開公開連接埠。
 
-目前相容性以 `host/compatibility.json` 的實際檔案 SHA-256 為準：OpenDesign 映像 0.24.1／內含 daemon 0.23.1，以及 WoowTech `20261012.0425-omnigent-v0.1.0` 自訂映像。兩個版本各自有完整的六檔指紋，安裝器會拒絕混合或未知版本。產品使用 Node.js 24；套件工具最低需要 Node.js 22.19。
+目前相容性以 `host/compatibility.json` 的實際檔案 SHA-256 為準：OpenDesign 映像 0.24.1／內含 daemon 0.23.1、固定 digest 的精簡上游映像及經驗證的 WoowTech Omnigent 自訂映像。每個 profile 都有完整六檔指紋，安裝器會拒絕混合或未知版本。實際 profile 與限制見[驗證記錄](docs/validation.md)。產品使用 Node.js 24；套件工具最低需要 Node.js 22.19。
 
 在容器中，以產品使用者的身分執行：
 
@@ -65,4 +65,6 @@ MIT 授權；來源版本見 `vendor/pi-paseo/PROVENANCE.json`。
 
 Claude Code／Codex 完全不存在時的 GUI 下載驗證與前置條件：[cold-install-verification.md](docs/cold-install-verification.md)。
 
-全新環境下載完成後，回到 OpenDesign 歡迎頁選 Local AI → Rescan，選擇 Claude Code 或 Codex 後繼續。受控映像將 HOME/.local/bin 加入 daemon PATH，讓原生引擎偵測得到這次下載的 launcher。
+## OCI 測試映像
+
+同一 repo 另含 `image/Dockerfile`，用於建立沒有預裝 Claude Code／Codex 的 OpenDesign 冷啟動驗收映像。此映像在啟動時準備主機適配層，使用者再從 `/paseo/setup` 按「首次安裝連線插件」。完整建置與限制見 [image/README.md](image/README.md)。該 Dockerfile 是獨立測試映像，不會替正在運作的自訂 PaaS 服務切換 image。

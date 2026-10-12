@@ -99,6 +99,14 @@ test('official bracketed model variants survive worker/repeated catalogs and bod
   const invalid=publicModels({provider:'claude',models:[{id:'claude\ninvalid'},{id:'claude<script>'},{id:'x'.repeat(301)}]});assert.deepEqual(invalid.models,[]);
 });
 
+test('OpenRouter tilde aliases survive model catalog and acceptance DTO boundaries',()=>{
+  const alias='openrouter/~anthropic/claude-haiku-latest';
+  const value=publicModels({provider:'pi',models:[{id:alias,label:'Claude Haiku (latest)'}]});
+  assert.deepEqual(value.models.map(model=>model.id),[alias]);
+  assert.equal(publicAcceptance({providers:[{provider:'pi',model:alias,modeId:null}]}).providers[0].model,alias);
+  assert.equal(publicChat({provider:'pi',model:alias,status:'completed',reply:'ok'}).model,alias);
+});
+
 test('protected acceptance retains a failed Pi row through worker and repeated status DTO boundaries, including redacted errors', async t => {
   const context = fixture(t);
   for (const [rawCode, expectedCode] of [['PROVIDER_AUTH_REQUIRED', 'PROVIDER_AUTH_REQUIRED'], ['PRIVATE_PROVIDER_ERROR_FIXTURE', 'RUNTIME_FAILED']]) {

@@ -1,6 +1,6 @@
 import { providers, safeError } from './runtime-context.mjs';
 
-const id = value => typeof value === 'string' && value.length <= 300 && /^[A-Za-z0-9_.:/@+ \[\]-]+$/.test(value) ? value : null;
+const id = value => typeof value === 'string' && value.length <= 300 && /^[A-Za-z0-9_.:/@+~ \[\]-]+$/.test(value) ? value : null;
 const date = value => typeof value === 'string' && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : null;
 const code = value => value ? safeError({ code: value }).code : null;
 const secretValue = /(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|authorization|bearer)\s*[=:]\s*["']?[^\s"',;]+/gi;
