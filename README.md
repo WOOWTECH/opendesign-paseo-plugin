@@ -1,70 +1,26 @@
-# OpenDesign Paseo 插件
+# OpenDesign 內建 Claude Code、Codex 與 Pi CLI
 
-在 OpenDesign 原生 **Plugins / Integrations** 中安裝 Paseo，透過同一個受保護的 GUI 啟動服務、登入 Claude Code／Codex／Pi、選擇模型及模式，並配對官方 Paseo App。
+這個專案現在提供 OpenDesign 預裝 CLI 的 OCI 映像。OpenDesign 服務啟動後，產品使用者即可在終端與 Local AI 清單中使用 Claude Code、Codex、Pi Coding Agent，不必匯入或安裝 Paseo 插件，也不會在第一次對話時才下載 CLI。
 
-## 使用者操作
+映像固定 OpenDesign 0.24.1 及以下 CLI 版本：
 
-由系統管理員先完成下方的主機整合。之後使用者只需：
+- Claude Code `2.1.296`
+- Codex CLI `0.162.1`
+- Pi Coding Agent `1.1.0`
 
-1. 完全沒有 CLI 的新環境：先開啟 `/paseo/setup`，按「首次安裝連線插件」。這可避開原生歡迎頁要求先有 CLI 的循環。已有代理的環境也可開啟 OpenDesign → Plugins → Import，貼上 `https://github.com/WOOWTECH/opendesign-paseo-plugin`。
-2. 在 Paseo 插件卡片或 Integrations 開啟「安裝與連線設定」。首次安裝會啟動受控套件下載，並建立一個原生初始化對話。
-3. 在設定頁查看三個代理的狀態，透過各供應商的官方流程登入自己的帳號。OpenDesign 管理員密碼只用於網站登入。
-4. 選擇代理、模型與模式，執行「測試選定模型」。通過須取得本次兩輪實際回覆，並清理本次測試代理。
-5. 按「建立配對連結」並開啟官方 Paseo App，在 App 中選擇同一台服務及模型開始對話。
+管理員部署本 repo 的 `image/Dockerfile` 建出的映像即可。建置期間會以 OpenDesign UID 1001 執行三個 CLI 的版本檢查；任一命令無法啟動，建置就會失敗。服務啟動沿用 OpenDesign 原生 daemon，不注入 Paseo host adapter、preload 或安裝器。
 
-手動停止會保存停用意圖，重新啟動 OpenDesign 後仍維持停止。Integrations 的 MCP 開關控制工具是否可用；服務的啟動／停止在 Paseo 設定頁操作。
+使用者首次使用時，在 OpenDesign GUI 開啟 **Local AI → Rescan**，選擇所需 CLI，再依各工具的官方流程登入自己的帳號。映像只提供程式，不含任何個人授權或 API key；能執行 CLI 不代表帳號已授權或模型對話已驗收。
 
-## 管理員部署
-
-OpenDesign 原生插件安裝器不會執行 npm 安裝或新增伺服器路由。本套件包含一個小型主機適配層，須先在受支援的 OpenDesign 容器中安裝一次。適配層沿用原生驗證、插件記錄、MCP 設定與專案 API，不另開公開連接埠。
-
-目前相容性以 `host/compatibility.json` 的實際檔案 SHA-256 為準：OpenDesign 映像 0.24.1／內含 daemon 0.23.1、固定 digest 的精簡上游映像及經驗證的 WoowTech Omnigent 自訂映像。每個 profile 都有完整六檔指紋，安裝器會拒絕混合或未知版本。實際 profile 與限制見[驗證記錄](docs/validation.md)。產品使用 Node.js 24；套件工具最低需要 Node.js 22.19。
-
-在容器中，以產品使用者的身分執行：
+## 建置與驗收
 
 ```sh
-npm ci --omit=dev
-node scripts/install-host.mjs --home /home/opendesign --host-root /app
+docker build -f image/Dockerfile -t opendesign-cli-bundle:test .
+npm test -- tests/image-preinstalled-clis.test.mjs
 ```
 
-安裝器準備 HOME 持久卷下的不可變版本，驗證套件、主機指紋與覆寫內容，再發布版本指標。將輸出的 `nodeOptionsImport` 追加到服務原有的 `NODE_OPTIONS`，保留既有記憶體設定。例如：
+完整的冷啟動、GUI 掃描與服務驗收紀錄放在 [預裝 CLI 映像說明](docs/preinstalled-cli-image.md)。
 
-```text
---max-old-space-size=4096 --import file:///home/opendesign/.local/share/opendesign-paseo/bin/preload.mjs
-```
+## 舊 Paseo 插件
 
-WoowTech PaaS 使用服務本身的 `config.extraConfig.NODE_OPTIONS` 配置，透過管理員的原生 ORM、全量配置組裝與 Operator 預檢／套用保存。沿用這台服務目前的 chart、映像與驗證設定，保留原 ENTRYPOINT、Omnigent 啟動鏈與產品參數；不要只修改正在執行的 Pod。若服務使用 Omnigent 自訂映像，應使用保留現行映像的配置流程：PaaS 的 Redeploy 會重新套用商品範本的映像，可能移除自訂整合。
-
-`OD_DATA_DIR` 與 HOME 都需要可寫的持久卷。大型 runtime 與代理套件放在 `OD_DATA_DIR/paseo/packages`；各供應商登入資料留在使用者 HOME。需可連線至套件 registry、供應商授權服務與 Paseo relay，Python 3 用於經驗證的 Linux 鎖定 helper。
-
-重啟並確認 OpenDesign 原功能正常後，再讓使用者從 Plugins 的 Git URL 安裝。配對連結及 OAuth 回呼只在保護頁面短暫使用，不放進對話、localStorage、Git 或一般日誌。
-
-## 驗證與回復
-
-```sh
-npm ci
-npm test
-npm run check
-npm audit --omit=dev
-npm audit --omit=dev --prefix vendor/pi-paseo/runtime
-```
-
-瀏覽器測試需要 Python Playwright 與 Chromium。正式驗收工具讀取私密設定，預設只做唯讀檢查；變更功能須明確指定 `--allow-mutation`。使用 `node scripts/acceptance-config.mjs` 產生無憑證的設定樣板，填入已確認的專用測試目標、官方 App 選擇器與已登入代理，私密設定檔權限設為 `0600`。
-
-更新保留前一版本，原生插件更換使用專用的暫存、發布與回復保護。回復前先停止 Paseo，還原已驗證的版本指標或移除該服務新增的 NODE_OPTIONS import，再以原生 PaaS 流程重新部署。保留 `OD_DATA_DIR/paseo` 與原產品資料；不要刪除租戶憑證或資料卷。
-
-實測範圍與證據見 [docs/validation.md](docs/validation.md)。原始碼及鎖檔公開不代表每個租戶已完成供應商登入；三個代理都需要各自的帳號授權與可用額度。
-
-## 來源
-
-- [OpenDesign](https://github.com/nexu-io/open-design)
-- [Paseo](https://github.com/getpaseo/paseo)
-- [WOOWTECH Pi Paseo runtime](https://github.com/WOOWTECH/pi-paseo-plugin)：只沿用固定版本的受控 runtime，未執行 Pi Web 安裝器。
-
-MIT 授權；來源版本見 `vendor/pi-paseo/PROVENANCE.json`。
-
-Claude Code／Codex 完全不存在時的 GUI 下載驗證與前置條件：[cold-install-verification.md](docs/cold-install-verification.md)。
-
-## OCI 測試映像
-
-同一 repo 另含 `image/Dockerfile`，用於建立沒有預裝 Claude Code／Codex 的 OpenDesign 冷啟動驗收映像。此映像在啟動時準備主機適配層，使用者再從 `/paseo/setup` 按「首次安裝連線插件」。完整建置與限制見 [image/README.md](image/README.md)。該 Dockerfile 是獨立測試映像，不會替正在運作的自訂 PaaS 服務切換 image。
+舊版 Paseo 插件已從 OpenDesign 測試服務的啟動鏈移除，使用者不需要也不應安裝該插件。這個 GitHub repo 現在用來建置與驗收預裝 CLI 映像；請勿再使用過去的 Paseo 插件匯入步驟。

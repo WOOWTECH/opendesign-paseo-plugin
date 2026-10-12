@@ -1,7 +1,7 @@
 {
-  "name": "@woowtech/opendesign-paseo",
+  "name": "@woowtech/opendesign-cli-image",
   "version": "0.1.0",
-  "description": "Native OpenDesign plugin and protected GUI for managed Paseo pairing and coding-agent conversations",
+  "description": "OpenDesign OCI image with Claude Code, Codex and Pi CLI preinstalled",
   "type": "module",
   "license": "MIT",
   "repository": {
@@ -12,29 +12,14 @@
     "node": ">=22.19.0"
   },
   "scripts": {
-    "test": "node --test tests/*.test.mjs",
-    "check": "node scripts/check-package.mjs"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "1.31.0",
-    "brace-expansion": "5.0.12"
+    "test": "node --test tests/image-preinstalled-clis.test.mjs",
+    "check": "node scripts/check-image-contract.mjs"
   },
   "files": [
-    "bin",
-    "src",
-    "ui",
-    "plugin",
-    "host",
-    "scripts/*.mjs",
-    "scripts/*.py",
-    "vendor",
+    "image",
     "README.md",
     "LICENSE",
-    "SKILL.md",
-    "open-design.json",
-    "image",
-    "docs/cold-install-verification.md",
     "docs/preinstalled-cli-image.md",
-    "docs/validation.md"
+    "scripts/check-image-contract.mjs"
   ]
 }
