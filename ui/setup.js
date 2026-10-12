@@ -72,7 +72,9 @@
     const locked = busy || authBlocked || disposed || status?.operation?.pending === true;
     const reachable = status?.daemon?.reachable === true;
     for (const id of ["enable", "disable", "login", "onboarding"]) $(id).disabled = locked || !status;
-    $("enable").disabled ||= reachable && status?.desiredEnabled === true;
+    $("enable").disabled ||= status?.pluginInstalled === false || reachable && status?.desiredEnabled === true;
+    $("import-plugin").hidden = status?.pluginInstalled !== false;
+    $("import-plugin").disabled = locked || !status;
     $("disable").disabled ||= !status?.desiredEnabled && !status?.daemon?.running;
     for (const id of ["models", "pair"]) $(id).disabled = locked || !reachable;
     $("provider").disabled = locked;
@@ -216,11 +218,12 @@
     settleOperation(dto);
     // Keep only the public DTO fields used by this page; do not cache raw runtime state.
     status = {
+      pluginInstalled: typeof dto.pluginInstalled === "boolean" ? dto.pluginInstalled : null,
       phase: clean(dto.phase), desiredEnabled: dto.desiredEnabled === true,
       daemon: { running: dto.daemon.running === true, reachable: dto.daemon.reachable, relayEnabled: dto.daemon.relayEnabled === true },
       operation: { pending: dto.operation?.pending === true || ["queued", "running"].includes(dto.operation?.status) || pendingOperation !== null },
     };
-    text("phase", phaseLabels[status.phase] || "狀態待確認");
+    text("phase", dto.installed === false ? "尚未安裝" : phaseLabels[status.phase] || "狀態待確認");
     text("version", clean(dto.version) || "尚未安裝");
     text("enable", clean(dto.version) ? "啟動服務" : "安裝並啟動");
     text("daemon", status.daemon.reachable ? "Paseo 可連線（目前檢查）" : "目前尚未連線");
@@ -430,6 +433,46 @@
       }
     }
   }
+  async function importPlugin() {
+    if (busy || authBlocked || disposed || status?.pluginInstalled !== false || status.operation.pending) return;
+    const issued = ++mutationGeneration, pageAtStart = pageGeneration;
+    busy = true; clearPoll(); clearTransient();
+    if (readController) { readController.abort(); readController = null; }
+    generation += 1;
+    const controller = new AbortController(); requests.add(controller);
+    const timeout = setTimeout(() => controller.abort(), 180000);
+    text("notice", "正在從 GitHub 下載並匯入連線插件，請稍候…"); controls();
+    try {
+      const response = await fetch("/api/plugins/install", {
+        method: "POST", credentials: "same-origin", cache: "no-store", redirect: "error",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: "https://github.com/WOOWTECH/opendesign-paseo-plugin" }),
+        signal: controller.signal,
+      });
+      if (response.status === 401 || response.status === 403) throw Object.assign(new Error("AUTH_REQUIRED"), { code: "AUTH_REQUIRED" });
+      if (!response.ok) throw new Error("IMPORT_FAILED");
+      // Drain the native installer stream without displaying private paths or
+      // treating HTTP 200 alone as success. Registry proof is checked below.
+      if (response.body?.getReader) {
+        const reader = response.body.getReader(); let bytes = 0;
+        try { while (true) { const next = await reader.read(); if (next.done) break; bytes += next.value.byteLength; if (bytes > 1048576) { controller.abort(); throw new Error("IMPORT_RESPONSE_LIMIT"); } } }
+        finally { reader.releaseLock(); }
+      } else { const value = await response.text(); if (value.length > 1048576) throw new Error("IMPORT_RESPONSE_LIMIT"); }
+      if (disposed || issued !== mutationGeneration || pageAtStart !== pageGeneration) return;
+      const { dto } = await request("GET", undefined, controller, 15000);
+      if (dto.pluginInstalled !== true) throw new Error("IMPORT_NOT_CONFIRMED");
+      renderStatus(dto);
+      text("notice", "插件已匯入，正在準備缺少的代理套件。完成後可進行官方登入。");
+    } catch (error) {
+      if (disposed || issued !== mutationGeneration || pageAtStart !== pageGeneration) return;
+      if (error?.code === "AUTH_REQUIRED") authBlocked = true;
+      text("notice", error?.code === "AUTH_REQUIRED" ? errorMessage(error) : "匯入結果尚未確認。請重新整理檢查狀態後再操作。");
+    } finally {
+      clearTimeout(timeout); requests.delete(controller);
+      if (issued === mutationGeneration && pageAtStart === pageGeneration) { busy = false; controls(); schedulePoll(1000); }
+    }
+  }
+  $("import-plugin").addEventListener("click", () => { void importPlugin(); });
   $("refresh").addEventListener("click", () => { void refresh(true); });
   for (const action of ["enable", "disable", "pair", "onboarding"]) {
     $(action).addEventListener("click", () => { void mutate(action); });

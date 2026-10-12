@@ -57,6 +57,26 @@ def bridge(route):
  route.fulfill(status=200,content_type="application/json",body=json.dumps(result))
 with sync_playwright() as pw:
  browser=pw.chromium.launch(headless=True,args=["--no-sandbox"])
+ cold_context=browser.new_context(viewport={"width":390,"height":844})
+ cold_page=cold_context.new_page()
+ cold={**status,"pluginInstalled":False,"installed":False,"phase":"disabled","desiredEnabled":False,"version":None}
+ native_imports=[]
+ cold_page.route("**/api/paseo-bridge",lambda route:route.fulfill(status=200,content_type="application/json",body=json.dumps(cold)))
+ def native_import(route):
+  assert route.request.method=="POST"
+  assert route.request.post_data_json=={"source":"https://github.com/WOOWTECH/opendesign-paseo-plugin"}
+  native_imports.append(True);cold["pluginInstalled"]=True;cold["phase"]="installing"
+  route.fulfill(status=200,content_type="text/event-stream",body='event: installed\ndata: {}\n\n')
+ cold_page.route("**/api/plugins/install",native_import)
+ cold_page.goto(base+"/paseo/setup")
+ expect(cold_page.locator("#import-plugin")).to_be_visible()
+ expect(cold_page.locator("#enable")).to_be_disabled()
+ cold_page.get_by_role("button",name="首次安裝連線插件",exact=True).click()
+ expect(cold_page.locator("#import-plugin")).to_be_hidden()
+ assert len(native_imports)==1
+ assert cold_page.evaluate("() => document.documentElement.scrollWidth <= innerWidth")
+ cold_context.close()
+
  for width,height in [(1280,900),(390,844)]:
   context=browser.new_context(viewport={"width":width,"height":height})
   context.route("**/*",lambda route: route.continue_() if route.request.url.startswith(base+"/") else route.abort())

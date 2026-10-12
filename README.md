@@ -6,7 +6,7 @@
 
 由系統管理員先完成下方的主機整合。之後使用者只需：
 
-1. 開啟 OpenDesign → Plugins → Import，貼上 `https://github.com/WOOWTECH/opendesign-paseo-plugin`。
+1. 完全沒有 CLI 的新環境：先開啟 `/paseo/setup`，按「首次安裝連線插件」。這可避開原生歡迎頁要求先有 CLI 的循環。已有代理的環境也可開啟 OpenDesign → Plugins → Import，貼上 `https://github.com/WOOWTECH/opendesign-paseo-plugin`。
 2. 在 Paseo 插件卡片或 Integrations 開啟「安裝與連線設定」。首次安裝會啟動受控套件下載，並建立一個原生初始化對話。
 3. 在設定頁查看三個代理的狀態，透過各供應商的官方流程登入自己的帳號。OpenDesign 管理員密碼只用於網站登入。
 4. 選擇代理、模型與模式，執行「測試選定模型」。通過須取得本次兩輪實際回覆，並清理本次測試代理。
@@ -64,3 +64,5 @@ npm audit --omit=dev --prefix vendor/pi-paseo/runtime
 MIT 授權；來源版本見 `vendor/pi-paseo/PROVENANCE.json`。
 
 Claude Code／Codex 完全不存在時的 GUI 下載驗證與前置條件：[cold-install-verification.md](docs/cold-install-verification.md)。
+
+全新環境下載完成後，回到 OpenDesign 歡迎頁選 Local AI → Rescan，選擇 Claude Code 或 Codex 後繼續。受控映像將 HOME/.local/bin 加入 daemon PATH，讓原生引擎偵測得到這次下載的 launcher。

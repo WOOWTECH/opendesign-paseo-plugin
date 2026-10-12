@@ -548,3 +548,27 @@ test('BFCache restoration discards a pre-hide models reply and refreshes current
   assert.equal(f.$('acceptance').disabled, true);
   assert.equal(f.calls.at(-1).method, 'GET');
 });
+
+
+test('zero-CLI onboarding imports the fixed native plugin before enabling runtime', async () => {
+ const h=fixture();await h.ready(current({installed:false,pluginInstalled:false,phase:'disabled',desiredEnabled:false}));
+ assert.equal(h.$('import-plugin').hidden,false);assert.equal(h.$('enable').disabled,true);
+ h.responses.push({ok:true,status:200,text:async()=> 'event: done\ndata: {}\n\n'});
+ h.responses.push(h.response(current({installed:false,pluginInstalled:true,phase:'installing'})));
+ await h.click('import-plugin');
+ const call=h.calls.find(c=>c.url==='/api/plugins/install');assert.ok(call);
+ assert.equal(call.credentials,'same-origin');assert.equal(call.redirect,'error');
+ assert.equal(call.json.source,'https://github.com/WOOWTECH/opendesign-paseo-plugin');
+ assert.equal(h.$('import-plugin').hidden,true);
+ assert.equal(h.calls.some(c=>c.json?.action==='acceptance'),false);
+});
+
+test('native import failure never declares success or silently retries a conversation',async()=>{
+ const h=fixture();await h.ready(current({installed:false,pluginInstalled:false}));
+ h.responses.push({ok:true,status:200,text:async()=> 'private fixture must not be rendered'});
+ h.responses.push(h.response(current({installed:false,pluginInstalled:false})));
+ await h.click('import-plugin');
+ assert.ok(h.$('notice').textContent.includes('尚未確認'));
+ assert.equal(h.doc.body.textContent.includes('private fixture'),false);
+ assert.equal(h.calls.filter(c=>c.url==='/api/plugins/install').length,1);
+});
