@@ -1,0 +1,10 @@
+.git
+node_modules
+**/node_modules
+.private
+.env*
+.npmrc
+*.tgz
+**/auth.json
+**/.credentials.json
+tests
