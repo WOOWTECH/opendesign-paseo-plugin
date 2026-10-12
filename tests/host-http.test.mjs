@@ -3,17 +3,36 @@ import {registerPaseoBridge,installBridgeBodyParser} from '../host/adapter.mjs';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport} from '@modelcontextprotocol/sdk/client/stdio.js';
 const root=path.resolve(import.meta.dirname,'..');
-async function harness(t){
+async function harness(t,{hiddenRelease=false}={}){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'od-bridge-http-'));fs.mkdirSync(path.join(dir,'plugins/woowtech-paseo'),{recursive:true});for(const f of ['SKILL.md','open-design.json'])fs.copyFileSync(path.join(root,'plugin',f),path.join(dir,'plugins/woowtech-paseo',f));
+ const packageRoot=hiddenRelease?path.join(dir,'home/.local/share/opendesign-paseo/releases/fixture'):root;
+ if(hiddenRelease){fs.mkdirSync(path.join(packageRoot,'ui'),{recursive:true});for(const file of ['setup.html','setup.js','setup.css','native-entry.js'])fs.copyFileSync(path.join(root,'ui',file),path.join(packageRoot,'ui',file));fs.writeFileSync(path.join(packageRoot,'outside.txt'),'must remain private');fs.writeFileSync(path.join(packageRoot,'ui/.hidden.txt'),'must remain private');}
  const calls=[];let config={servers:[{id:'unrelated',transport:'stdio',command:'node',args:['unchanged.mjs'],enabled:true}]};let state={desiredEnabled:false,phase:'disabled'};
  const manager={status:async()=>({...state}),enable:async()=>{calls.push('enable');state={desiredEnabled:true,phase:'running'};},disable:async()=>{calls.push('disable');state={desiredEnabled:false,phase:'disabled'};},models:async provider=>({provider,models:[{id:'model'}]}),pair:async()=>({url:'https://app.paseo.sh/?offer=private'}),acceptance:async input=>{calls.push({acceptance:input});},login:async(...args)=>{calls.push({login:args});return {phase:'authorization_completed'};},ensureOnboarding:async()=>({url:'/projects/p/conversations/c'}),restore:async()=>{},shutdown:async()=>{},cancelPending:()=>{}};
  const app=express();installBridgeBodyParser(app,{allowedOrigins:['https://od.example.test']});app.use(express.json({limit:'4mb'}));
- const lifecycle=registerPaseoBridge(app,{dataDir:dir,home:dir,packageRoot:root,port:7457,allowedOrigins:['https://od.example.test'],nativeRequest:async()=>null,manager,getInstalledPluginRecord:()=>({id:'woowtech-paseo',sourceKind:'github'}),mcpConfig:{writeMcpConfig:async(_dir,update)=>{config=await update(config);return config;}}});
+ const lifecycle=registerPaseoBridge(app,{dataDir:dir,home:dir,packageRoot,port:7457,allowedOrigins:['https://od.example.test'],nativeRequest:async()=>null,manager,getInstalledPluginRecord:()=>({id:'woowtech-paseo',sourceKind:'github'}),mcpConfig:{writeMcpConfig:async(_dir,update)=>{config=await update(config);return config;}}});
  const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));const base='http://127.0.0.1:'+server.address().port;
  t.after(async()=>{lifecycle.disarm();server.closeAllConnections();await new Promise(r=>server.close(r));fs.rmSync(dir,{recursive:true,force:true});});
  const post=(body,headers={})=>fetch(base+'/api/paseo-bridge',{method:'POST',headers:{'Content-Type':'application/json',Origin:'https://od.example.test',...headers},body:typeof body==='string'?body:JSON.stringify(body)});
  return {base,post,calls,dir,lifecycle,config:()=>config};
 }
+async function verifyGuiAssets(t,hiddenRelease){
+ const h=await harness(t,{hiddenRelease});h.lifecycle.start();
+ for(const [route,file,type] of [['/paseo/setup','setup.html','text/html'],['/paseo/entry.js','native-entry.js','text/javascript'],['/paseo/assets/entry.js','native-entry.js','text/javascript'],['/paseo/assets/setup.js','setup.js','text/javascript'],['/paseo/assets/setup.css','setup.css','text/css']]){
+  const response=await fetch(h.base+route);assert.equal(response.status,200,route);
+  assert.equal(await response.text(),fs.readFileSync(path.join(root,'ui',file),'utf8'));
+  assert.ok(response.headers.get('content-type').startsWith(type));assert.ok(response.headers.get('cache-control').includes('no-store'));
+  assert.equal(response.headers.get('referrer-policy'),'no-referrer');assert.equal(response.headers.get('x-content-type-options'),'nosniff');
+  if(route==='/paseo/setup'){const csp=response.headers.get('content-security-policy');assert.ok(csp.includes("script-src 'self'"));assert.ok(csp.includes("frame-ancestors 'none'"));assert.equal(csp.includes('unsafe-eval'),false);}
+ }
+ // Send raw paths so URL normalization cannot erase the traversal test.
+ for(const route of ['/paseo/assets/.hidden.txt','/paseo/assets/native-entry.js','/paseo/assets/../outside.txt','/paseo/assets/%2e%2e%2foutside.txt','/paseo/assets/setup.js/../../outside.txt','/paseo/setup/../outside.txt']){
+  const result=await new Promise((resolve,reject)=>{const req=http.get(h.base,{path:route},res=>{let body='';res.on('data',chunk=>{body+=chunk;});res.on('end',()=>resolve({status:res.statusCode,body}));});req.on('error',reject);});
+  assert.equal(result.status,404,route);assert.equal(result.body.includes('must remain private'),false);
+ }
+}
+test('real Express serves whitelisted GUI assets from a hidden immutable release at startup',async t=>{await verifyGuiAssets(t,true);});
+test('real Express retains GUI assets, security headers and traversal denial from a generic package root',async t=>{await verifyGuiAssets(t,false);});
 test('real HTTP rejects cross-site and malformed requests before manager calls',async t=>{
  const h=await harness(t);
  for(const [body,headers,status] of [[{action:'enable'},{Origin:'https://evil.example.test'},403],[{action:'enable'},{'Sec-Fetch-Site':'cross-site'},403],['{',{},400],[{action:'enable',cwd:'/etc'}, {},400],['x'.repeat(17000),{},413]]){

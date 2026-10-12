@@ -50,10 +50,12 @@ SETUP_SELECTORS = {
     'acceptance': '#acceptance', 'result': '#test-result',
 }
 NATIVE_SELECTORS = {
+    'pluginsTab': 'section.plugin-marketplace .plugin-marketplace__switch button:first-child',
+    'installedTab': 'section.plugin-marketplace [data-testid="plugins-tab-installed"]',
     'importOpen': 'section.plugin-marketplace[aria-labelledby="plugin-marketplace-title"] .plugin-marketplace__create',
     'importInput': 'section.plugin-marketplace__create-panel[aria-labelledby="plugin-create-title"] .plugin-marketplace__url-import-row input',
     'importSubmit': 'section.plugin-marketplace__create-panel [data-testid="plugin-create-import-url"]',
-    'pluginCard': f'[data-testid="plugins-card-{PLUGIN_ID}"], [data-testid="plugins-card-more-{PLUGIN_ID}"]',
+    'pluginCard': f'section.plugin-marketplace article[data-testid="plugins-card-{PLUGIN_ID}"]',
     'integrationEntry': f'section.integrations-view[aria-labelledby="integrations-title"] [data-paseo-entry="{PLUGIN_ID}"] a[href="/paseo/setup"]',
 }
 
@@ -423,8 +425,10 @@ class Harness:
         require(isinstance(value, str) and value.startswith('/') and not value.startswith('//') and '#' not in value and '?' not in value, 'ACCEPTANCE_INVALID_NATIVE_PATH')
         return self.origin + value
 
-    async def native_get(self):
+    async def native_get(self, allow_absent=False):
         response = await self.context.request.get(self.native_path('pluginApi', '/api/plugins/' + PLUGIN_ID), max_redirects=0)
+        if allow_absent and response.status == 404:
+            return None
         require(response.ok, 'ACCEPTANCE_NATIVE_PLUGIN_HTTP_FAILED')
         value = await response.json()
         rows = plugin_records(value)
@@ -438,12 +442,24 @@ class Harness:
 
     async def native_check(self):
         await self.native_get()
+        self.evidence['nativePluginConfirmed'] = True
         await self.page.goto(self.native_path('pluginsPath', '/plugins'), wait_until='domcontentloaded')
-        await self.page.locator(self.native['pluginCard']).first.wait_for(state='visible')
+        # Pinned native shell resets to Expert suites / OpenDesign official.
+        # Imported records, including od.kind=skill plugins, live in Personal.
+        await self.page.locator(self.native['pluginsTab']).click()
+        await self.page.locator(self.native['installedTab']).click()
+        try:
+            await self.page.locator(self.native['pluginCard']).first.wait_for(state='visible')
+        except Exception:
+            raise AcceptanceError('ACCEPTANCE_NATIVE_CARD_NOT_VISIBLE') from None
+        self.evidence['nativePluginCardVisible'] = True
         await self.screenshot(self.page, 'native-plugins')
         await self.page.goto(self.native_path('integrationsPath', '/integrations'), wait_until='domcontentloaded')
         entry = self.page.locator(self.native['integrationEntry'])
-        await entry.first.wait_for(state='visible')
+        try:
+            await entry.first.wait_for(state='visible')
+        except Exception:
+            raise AcceptanceError('ACCEPTANCE_INTEGRATION_ENTRY_NOT_VISIBLE') from None
         require(await entry.count() == 1, 'ACCEPTANCE_INTEGRATION_NOT_UNIQUE')
         await self.screenshot(self.page, 'native-integrations')
         await entry.click()
@@ -458,18 +474,23 @@ class Harness:
         source = self.config.get('native', {}).get('gitUrl', 'https://github.com/WOOWTECH/opendesign-paseo-plugin')
         url = urlsplit(source)
         require(url.scheme == 'https' and url.hostname == 'github.com' and not url.query and not url.fragment and not url.username and not url.password and url.path.rstrip('/').removesuffix('.git') == '/WOOWTECH/opendesign-paseo-plugin', 'ACCEPTANCE_INVALID_PLUGIN_SOURCE')
-        await self.page.goto(self.native_path('pluginsPath', '/plugins'), wait_until='domcontentloaded')
-        await self.page.locator(self.native['importOpen']).click()
-        await self.page.locator(self.native['importInput']).fill(source)
-        async with self.page.expect_response(lambda r: urlsplit(r.url).path == '/api/plugins/install' and r.request.method == 'POST', timeout=360000) as pending:
-            await self.page.locator(self.native['importSubmit']).click()
-        response = await pending.value
-        require(response.ok, 'ACCEPTANCE_NATIVE_IMPORT_FAILED')
-        await asyncio.wait_for(response.finished(), timeout=360)
-        await self.native_get()  # Native GET confirmation, independent of POST success.
-        self.evidence['gitUrlImportConfirmed'] = True
+        existing = await self.native_get(allow_absent=True)
+        self.evidence['nativeInstallReused'] = existing is not None
+        self.evidence['gitUrlImportConfirmed'] = False
+        if existing is None:
+            await self.page.goto(self.native_path('pluginsPath', '/plugins'), wait_until='domcontentloaded')
+            await self.page.locator(self.native['pluginsTab']).click()
+            await self.page.locator(self.native['importOpen']).click()
+            await self.page.locator(self.native['importInput']).fill(source)
+            async with self.page.expect_response(lambda r: urlsplit(r.url).path == '/api/plugins/install' and r.request.method == 'POST', timeout=360000) as pending:
+                await self.page.locator(self.native['importSubmit']).click()
+            response = await pending.value
+            require(response.ok, 'ACCEPTANCE_NATIVE_IMPORT_FAILED')
+            await asyncio.wait_for(response.finished(), timeout=360)
+            await self.native_get()  # Native GET proof, independent of POST success.
+            self.evidence['gitUrlImportConfirmed'] = True
         await self.native_check()
-        expected_enabled = self.config.get('native', {}).get('expectedEnabled', initial.get('desiredEnabled') is True if initial.get('pluginInstalled') is True else True)
+        expected_enabled = self.config.get('native', {}).get('expectedEnabled', initial.get('desiredEnabled') is True if existing is not None else True)
         require(isinstance(expected_enabled, bool), 'ACCEPTANCE_INVALID_NATIVE_EXPECTATION')
         after = await self.wait_state(expected_enabled)
         require(not original_onboarding or onboarding_id(after) == original_onboarding, 'ACCEPTANCE_ONBOARDING_CHANGED')

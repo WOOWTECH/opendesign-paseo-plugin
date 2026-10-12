@@ -39,9 +39,11 @@ export function acceptanceConfigTemplate() {
       gitUrl: 'https://github.com/WOOWTECH/opendesign-paseo-plugin',
       pluginsPath: '/plugins', integrationsPath: '/integrations', pluginApi: '/api/plugins/woowtech-paseo',
       selectors: {
+        pluginsTab: 'section.plugin-marketplace .plugin-marketplace__switch button:first-child',
+        installedTab: 'section.plugin-marketplace [data-testid="plugins-tab-installed"]',
         importOpen: 'section.plugin-marketplace[aria-labelledby="plugin-marketplace-title"] .plugin-marketplace__create', importInput: 'section.plugin-marketplace__create-panel[aria-labelledby="plugin-create-title"] .plugin-marketplace__url-import-row input',
         importSubmit: 'section.plugin-marketplace__create-panel [data-testid="plugin-create-import-url"]',
-        pluginCard: '[data-testid="plugins-card-woowtech-paseo"], [data-testid="plugins-card-more-woowtech-paseo"]',
+        pluginCard: 'section.plugin-marketplace article[data-testid="plugins-card-woowtech-paseo"]',
         integrationEntry: 'section.integrations-view[aria-labelledby="integrations-title"] [data-paseo-entry="woowtech-paseo"] a[href="/paseo/setup"]',
       },
     },

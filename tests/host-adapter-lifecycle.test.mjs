@@ -86,6 +86,27 @@ test('host long job ID remains stable while the manager journals the same active
  gate.resolve();
 });
 
+test('status started during acceptance keeps its running operation until the next GET can read the final two-provider receipt',async t=>{
+ const acceptanceEntered=deferred(),acceptanceGate=deferred(),acceptanceCompleted=deferred(),statusEntered=deferred(),statusGate=deferred();
+ t.after(()=>{acceptanceGate.resolve();statusGate.resolve();});let deferStatus=true;
+ const claude={provider:'claude',passed:true,firstReply:true,followup:true,model:'claude-haiku-4-5',modeId:'default',cleanup:{archived:true}};
+ const partial={checkedAt:'2026-10-12T06:02:33.000Z',passed:false,providers:[claude]};
+ const final={checkedAt:'2026-10-12T06:02:42.000Z',passed:false,providers:[claude,{provider:'pi',passed:true,firstReply:true,followup:true,model:'openrouter/anthropic/claude-haiku-4.5',modeId:null,cleanup:{archived:true}}]};
+ const h=await fixture(t,{managerFactory:({fallback,setState})=>{
+  setState({desiredEnabled:true,lastVerification:partial});
+  return{...fallback,acceptance:async()=>{acceptanceEntered.resolve();await acceptanceGate.promise;setState({lastVerification:final});acceptanceCompleted.resolve();return final;},
+   status:async()=>{const value=await fallback.status();if(deferStatus){deferStatus=false;statusEntered.resolve();await statusGate.promise;}return value;}};
+ }});
+ const scheduled=await(await h.post({action:'acceptance',providers:['claude','pi']})).json();assert.equal(scheduled.operation.status,'running');await bounded(acceptanceEntered.promise);
+ const reading=h.status();await bounded(statusEntered.promise);
+ acceptanceGate.resolve();await bounded(acceptanceCompleted.promise);await new Promise(resolve=>setImmediate(resolve));
+ statusGate.resolve();const first=await bounded(reading);
+ assert.equal(first.operation.id,scheduled.operation.id);assert.equal(first.operation.status,'running','a pre-completion receipt must not be paired with completed');
+ assert.deepEqual(first.lastVerification,partial);
+ const second=await h.status();assert.equal(second.operation.id,scheduled.operation.id);assert.equal(second.operation.status,'completed');assert.deepEqual(second.lastVerification,final);
+ assert.deepEqual(second.lastVerification.providers.map(row=>row.provider),['claude','pi']);assert.equal(second.lastVerification.passed,false);
+});
+
 test('absent plugin with an unregistered receipt still stops orphaned enabled intent',async t=>{
  const disabled=deferred();const h=await fixture(t,{installed:false,managerFactory:({fallback,setState})=>{setState({desiredEnabled:true});return{...fallback,disable:async()=>{await fallback.disable();disabled.resolve();}};}});
  fs.mkdirSync(path.join(h.dataDir,'paseo'),{recursive:true});fs.writeFileSync(path.join(h.dataDir,'paseo/host-registration.json'),JSON.stringify({registered:false}));

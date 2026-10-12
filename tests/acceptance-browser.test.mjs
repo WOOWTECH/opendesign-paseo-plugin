@@ -297,3 +297,76 @@ asyncio.run(check())
 `, script, JSON.stringify(template.native.selectors)], { timeout: 25000 });
   assert.deepEqual(JSON.parse(stdout), { passed: true, nativeImportReady: true, integrationScoped: true });
 });
+
+test('native verification switches default official scope to Expert suites/Personal before proving the card', { timeout: 30000 }, async () => {
+  const { stdout } = await run('python3', ['-c', bootstrap + `
+import asyncio,json
+from types import SimpleNamespace
+from playwright.async_api import async_playwright
+async def check():
+ h=module.Harness(SimpleNamespace(phase='native',allow_mutation=False),{}, {'base':'https://native-fixture.example.test'}, {'username':'fixture','password':'fixture-only'})
+ plugins='''<!doctype html><section class="plugin-marketplace" aria-labelledby="plugin-marketplace-title"><div class="plugin-marketplace__switch"><button onclick="window.pluginMode=true;document.querySelector('article').hidden=!window.personal">Expert suites</button><button onclick="window.pluginMode=false;document.querySelector('article').hidden=true">Skills</button></div><button data-testid="plugins-tab-installed" onclick="window.personal=true;document.querySelector('article').hidden=!window.pluginMode">Personal</button><article data-testid="plugins-card-woowtech-paseo" hidden>Paseo</article><script>window.pluginMode=true;window.personal=false</script></section>'''
+ integrations='''<!doctype html><section class="plugin-marketplace" hidden><aside data-paseo-entry="woowtech-paseo"><a href="/paseo/setup">hidden card entry</a></aside></section><section class="integrations-view" aria-labelledby="integrations-title"><header class="integrations-view__hero"></header><aside data-paseo-entry="woowtech-paseo"><a href="/paseo/setup">setup</a></aside></section>'''
+ async with async_playwright() as p:
+  browser=await p.chromium.launch(headless=True)
+  try:
+   context=await browser.new_context(service_workers='block')
+   async def route(r):
+    path=module.urlsplit(r.request.url).path
+    if r.request.method!='GET':raise AssertionError('native verification wrote to server')
+    html={'/plugins':plugins,'/integrations':integrations,'/paseo/setup':'<main id="main">protected setup fixture</main>'}.get(path)
+    if html is None:await r.abort()
+    else:await r.fulfill(status=200,content_type='text/html',body=html)
+   await context.route('**/*',route)
+   h.page=await context.new_page();h.page.set_default_timeout(2000)
+   async def native_get(allow_absent=False):return {'id':'woowtech-paseo'}
+   async def screenshot(page,label):pass
+   h.native_get=native_get;h.screenshot=screenshot
+   await h.native_check()
+   assert h.evidence['nativePluginConfirmed'] and h.evidence['nativePluginCardVisible'] and h.evidence['integrationEntryConfirmed']
+   assert module.urlsplit(h.page.url).path=='/paseo/setup'
+   print(json.dumps({'passed':True,'personalTabConfirmed':True}))
+  finally:await browser.close()
+asyncio.run(check())
+`, script], { timeout: 25000 });
+  assert.deepEqual(JSON.parse(stdout), { passed: true, personalTabConfirmed: true });
+});
+
+test('verified existing native install is reused without import or onboarding mutation; foreign record fails closed', async () => {
+  const { stdout } = await run('python3', ['-c', bootstrap + `
+import asyncio,json
+from types import SimpleNamespace
+async def check():
+ h=module.Harness(SimpleNamespace(phase='install',allow_mutation=True),{}, {'base':'https://native-fixture.example.test'}, {'username':'fixture','password':'fixture-only'})
+ class NoPageWrites:
+  def __getattr__(self,name):raise AssertionError('reuse must not open import or write to page')
+ h.page=NoPageWrites()
+ calls=[]
+ initial={'desiredEnabled':False,'pluginInstalled':True,'onboarding':{'id':'fixture-same-onboarding'}}
+ async def bridge():calls.append('status');return initial
+ async def native_check():calls.append('native-check')
+ async def wait_state(enabled):assert enabled is False;calls.append('wait-status');return initial
+ h.bridge=bridge;h.native_check=native_check;h.wait_state=wait_state
+ class Response:
+  status=200;ok=True
+  async def json(self):return {'id':'woowtech-paseo','manifest':{'name':'woowtech-paseo'},'source':'github:WOOWTECH/opendesign-paseo-plugin'}
+ class Request:
+  response=Response()
+  async def get(self,url,max_redirects):calls.append('native-get');return self.response
+ request=Request();h.context=SimpleNamespace(request=request)
+ await h.install()
+ assert calls==['status','native-get','native-check','wait-status']
+ assert h.evidence['nativeInstallReused'] is True and h.evidence['gitUrlImportConfirmed'] is False
+ assert h.evidence['repeatInstallPreservedOnboarding'] is True
+ async def foreign():return {'id':'woowtech-paseo','manifest':{'name':'woowtech-paseo'},'source':'github:other/foreign'}
+ request.response.json=foreign
+ try:await h.install()
+ except module.AcceptanceError as e:assert e.code=='ACCEPTANCE_NATIVE_PLUGIN_SOURCE_MISMATCH'
+ else:raise AssertionError('foreign record was reused')
+ request.response.status=404;request.response.ok=False
+ assert await h.native_get(allow_absent=True) is None
+ print(json.dumps({'passed':True,'reuseWithoutMutation':True,'foreignRejected':True}))
+asyncio.run(check())
+`, script], { timeout: 15000 });
+  assert.deepEqual(JSON.parse(stdout), { passed: true, reuseWithoutMutation: true, foreignRejected: true });
+});

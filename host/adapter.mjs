@@ -36,6 +36,7 @@ export function installBridgeBodyParser(app,{allowedOrigins=[]}={}){
 export function registerPaseoBridge(app,options){
  const {dataDir,home,port,allowedOrigins=[],getInstalledPluginRecord}=options;
  const packageRoot=options.packageRoot||sourceRoot;
+ const uiRoot=path.join(packageRoot,'ui');
  if(!path.isAbsolute(dataDir)||!path.isAbsolute(home))throw new RuntimeError('INVALID_RUNTIME_PATH');
  const request=options.nativeRequest||nativeHttpClient(port);
  const native=nativeOnboarding({dataDir,request});
@@ -74,10 +75,11 @@ export function registerPaseoBridge(app,options){
   atomicJson(mcpReceiptFile,{entry:desiredEntry,removed:remove,updatedAt:new Date().toISOString()});
  };
  const status=async()=>{
+  const hostOperation=operation?{...operation}:null;
   const value=await manager.status(),current=value.operation;
-  const hostWins=operation&&(operation.status==='running'||!current||current.status!=='running'&&
-   Date.parse(operation.completedAt||operation.startedAt)>=Date.parse(current.completedAt||current.startedAt));
-  return {...value,pluginInstalled:installed(),...(hostWins?{operation:{...operation}}:{})};
+  const hostWins=hostOperation&&(hostOperation.status==='running'||!current||current.status!=='running'&&
+   Date.parse(hostOperation.completedAt||hostOperation.startedAt)>=Date.parse(current.completedAt||current.startedAt));
+  return {...value,pluginInstalled:installed(),...(hostWins?{operation:hostOperation}:{})};
  };
  const schedule=(action,work)=>{
   if(stopped||uninstalling)throw new BridgeError('OPERATION_BUSY',409);
@@ -111,11 +113,11 @@ export function registerPaseoBridge(app,options){
  };
  app.get('/paseo/setup',(_req,res)=>{
   setPrivateHeaders(res);res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
-  return res.sendFile(path.join(packageRoot,'ui/setup.html'));
+  return res.sendFile('setup.html',{root:uiRoot,dotfiles:'deny'});
  });
  const assets={'setup.js':'setup.js','setup.css':'setup.css','entry.js':'native-entry.js'};
- for(const [url,file] of Object.entries(assets))app.get(`/paseo/assets/${url}`,(_req,res)=>{setPrivateHeaders(res);res.sendFile(path.join(packageRoot,'ui',file));});
- app.get('/paseo/entry.js',(_req,res)=>{setPrivateHeaders(res);res.sendFile(path.join(packageRoot,'ui/native-entry.js'));});
+ for(const [url,file] of Object.entries(assets))app.get(`/paseo/assets/${url}`,(_req,res)=>{setPrivateHeaders(res);res.sendFile(file,{root:uiRoot,dotfiles:'deny'});});
+ app.get('/paseo/entry.js',(_req,res)=>{setPrivateHeaders(res);res.sendFile('native-entry.js',{root:uiRoot,dotfiles:'deny'});});
  app.get('/api/paseo-bridge',(req,res)=>{
   if(!requestAllowed(req,allowedOrigins))return json(res,publicError(new BridgeError('UNTRUSTED_REQUEST')),403);
   void status().then(value=>json(res,value),error=>json(res,publicError(error),503));

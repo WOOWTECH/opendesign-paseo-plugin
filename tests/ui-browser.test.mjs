@@ -15,7 +15,7 @@ import json, sys, threading
 from datetime import datetime, timezone
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, expect
 
 root = Path(sys.argv[1])
 native = b'''<!doctype html><html lang="zh-Hant"><head><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="/paseo/assets/setup.css"><script defer src="/paseo/entry.js"></script></head><body><main><section class="integrations-view" aria-labelledby="integrations-title"><header class="integrations-view__hero"><h1 id="integrations-title">Integrations</h1></header></section></main></body></html>'''
@@ -63,12 +63,13 @@ with sync_playwright() as pw:
   page=context.new_page()
   page.route("**/api/paseo-bridge",bridge)
   errors=[]; page.on("pageerror",lambda error: errors.append(str(error)))
-  page.goto(base+"/paseo/setup")
+  response=page.goto(base+"/paseo/setup",wait_until="domcontentloaded")
+  assert response.headers["content-security-policy"] == "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
   page.get_by_role("button",name="讀取可用模型",exact=True).click()
-  page.wait_for_function("document.querySelector(\"#model\").value === \"live-model\"")
+  expect(page.locator("#model")).to_have_value("live-model")
   assert page.locator("#model").input_value()=="live-model"
   assert page.locator("#mode").input_value()=="safe"
-  assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), "viewport overflows"
+  assert page.evaluate("() => document.documentElement.scrollWidth <= innerWidth"), "viewport overflows"
   page.screenshot(path="/tmp/opendesign-paseo-gui-"+str(width)+".png",full_page=True)
   page.locator("#provider").select_option("pi")
   page.get_by_role("button",name="登入與帳號設定",exact=True).click()
@@ -78,14 +79,14 @@ with sync_playwright() as pw:
   page.locator("#login-message").filter(has_text="官方登入流程已完成").wait_for()
   assert field.input_value()==""
   assert not field.is_visible()
-  assert page.evaluate("Object.keys(localStorage).length+Object.keys(sessionStorage).length")==0
+  assert page.evaluate("() => Object.keys(localStorage).length+Object.keys(sessionStorage).length")==0
   page.get_by_role("button",name="讀取可用模型",exact=True).click()
   page.get_by_role("button",name="測試選定模型",exact=True).click()
   page.locator("#test-result").filter(has_text="本次已取得兩輪").wait_for()
   page.get_by_role("button",name="建立配對連結",exact=True).click()
   page.locator("#pair-link").wait_for(state="visible")
   assert page.locator("#pair-link").get_attribute("href").startswith("https://app.paseo.sh/")
-  page.evaluate("window.dispatchEvent(new Event('pagehide'))")
+  page.evaluate("() => window.dispatchEvent(new Event('pagehide'))")
   assert page.locator("#pair-link").get_attribute("href") is None
   assert not page.locator("#pair-panel").is_visible()
   assert not errors, "browser script failed"
@@ -110,7 +111,7 @@ with sync_playwright() as pw:
  }""")
  page.get_by_role("link",name="安裝與連線設定",exact=True).wait_for()
  assert page.locator(".paseo-native-entry").count()==1
- page.evaluate("document.querySelector('main').replaceChildren()")
+ page.evaluate("() => document.querySelector('main').replaceChildren()")
  page.locator(".paseo-native-entry").wait_for(state="detached")
  context.close(); browser.close()
 server.shutdown()
@@ -118,7 +119,8 @@ assert all("password" not in body and "token" not in body for body in calls)
 print(json.dumps({"viewports":[1280,390],"csp":"external-only","nativeRemount":True,"callbackCleared":True,"pairingCleared":True,"externalRequests":"blocked"}))
 `;
   const result = spawnSync('python3', ['-c', program, root], { encoding: 'utf8', timeout: 55000, maxBuffer: 1024 * 1024 });
-  assert.equal(result.status, 0, (result.stderr || result.error?.message || '').slice(0, 5000));
+  const failure = result.stderr?.includes('unsafe-eval') ? 'CSP_EVAL_BLOCKED' : result.error?.code || 'UI_BROWSER_CHECK_FAILED';
+  assert.equal(result.status, 0, failure);
   const report = JSON.parse(result.stdout.trim());
   assert.deepEqual(report.viewports, [1280, 390]);
   assert.equal(report.nativeRemount, true);

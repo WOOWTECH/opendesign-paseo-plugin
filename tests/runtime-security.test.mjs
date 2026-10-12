@@ -8,7 +8,7 @@ import { PassThrough } from 'node:stream';
 import { runtimeContext, sourceRoot } from '../src/runtime-context.mjs';
 import { callRuntime } from '../src/runtime-client.mjs';
 import { createAuthFlow, officialAuthorizationUrl } from '../src/auth-flow.mjs';
-import { publicStatus, publicChat, redactText } from '../src/public-dto.mjs';
+import { publicStatus, publicAcceptance, publicChat, redactText } from '../src/public-dto.mjs';
 import { ensureNativeOnboarding, onboardingRecord } from '../src/onboarding.mjs';
 import { executeRuntimeJob } from '../src/runtime-worker.mjs';
 import { providerEnvironment } from '../src/provider-install.mjs';
@@ -65,6 +65,25 @@ test('public DTO excludes raw paths/auth state and chat redacts pairing/provider
   const chat = publicChat({ agentId: 'owned_agent', provider: 'codex', model: 'model', status: 'completed', reply: 'tenant-secret-fixture https://app.paseo.sh/?ticket=PAIR sk-1234567890abcdefghijklmnopqrstuvwxyz api_key=raw-secret' }, { OPENAI_API_KEY: 'tenant-secret-fixture' });
   for (const secret of ['tenant-secret-fixture', '?ticket', 'sk-123456', 'raw-secret']) assert.equal(chat.reply.includes(secret), false);
   assert.equal(redactText('Ordinary discussion of API tokens'), 'Ordinary discussion of API tokens');
+});
+
+test('protected acceptance retains a failed Pi row through worker and repeated status DTO boundaries, including redacted errors', async t => {
+  const context = fixture(t);
+  for (const [rawCode, expectedCode] of [['PROVIDER_AUTH_REQUIRED', 'PROVIDER_AUTH_REQUIRED'], ['PRIVATE_PROVIDER_ERROR_FIXTURE', 'RUNTIME_FAILED']]) {
+    const raw = { checkedAt: '2026-10-12T00:00:00.000Z', passed: false, providers: [
+      { provider: 'claude', passed: true, firstReply: true, followup: true, model: 'claude-haiku-4-5', modeId: 'default', agentId: 'owned_claude_fixture', cleanup: { archived: true } },
+      { provider: 'pi', passed: false, firstReply: false, followup: false, model: 'openrouter/anthropic/claude-haiku-4.5', code: rawCode,
+        cleanup: { archived: false }, rawError: 'private-provider-output-fixture', credentials: 'private-credential-fixture', authorizationUrl: 'https://auth.openai.com/oauth/authorize?state=private-fixture' },
+    ] };
+    const receipt = await executeRuntimeJob(context, { action: 'acceptance', input: { providers: ['claude', 'pi'] } }, { acceptance: async () => raw });
+    const workerStatus = await executeRuntimeJob(context, { action: 'status' }, { status: async () => ({ phase: 'running', state: { acceptance: raw } }) });
+    for (const value of [receipt, publicAcceptance(receipt), workerStatus.lastVerification, publicStatus(workerStatus).lastVerification]) {
+      assert.equal(value.passed, false); assert.deepEqual(value.providers.map(row => row.provider), ['claude', 'pi']);
+      assert.equal(value.providers[0].passed, true); assert.equal(value.providers[0].cleanup.archived, true);
+      assert.equal(value.providers[1].passed, false); assert.equal(value.providers[1].code, expectedCode);
+      for (const secret of ['private-provider-output-fixture', 'private-credential-fixture', 'private-fixture', 'PRIVATE_PROVIDER_ERROR_FIXTURE']) assert.equal(JSON.stringify(value).includes(secret), false);
+    }
+  }
 });
 
 test('official authorization URLs reject spoofed host/userinfo/custom port', () => {
