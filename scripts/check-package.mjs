@@ -28,7 +28,7 @@ const result=spawnSync('npm',['pack','--dry-run','--json'],{cwd:root,encoding:'u
 assert.equal(result.status,0,'npm pack failed');
 const packed=JSON.parse(result.stdout)[0];
 for(const {path:file} of packed.files){
- assert(!/(?:^|\/)(?:node_modules|\.private|\.git|evidence|worktrees|\.cache)(?:\/|$)/.test(file),`Unexpected private path: ${file}`);
+ assert(!/(?:^|\/)(?:node_modules|\.private|\.git|evidence|worktrees|\.cache|__pycache__)(?:\/|$)/.test(file),`Unexpected private path: ${file}`);
  assert(!/(?:auth\.json|browser-auth|acceptance-config\.json|\.env|\.pem|\.key)$/.test(file),`Credential-like artifact: ${file}`);
  const content=fs.readFileSync(path.join(root,file),'utf8');
  assert(!/ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}/.test(content),`Token-like artifact: ${file}`);

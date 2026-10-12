@@ -4,3 +4,5 @@ private/
 evidence/
 worktrees/
 .cache/
+__pycache__/
+*.pyc

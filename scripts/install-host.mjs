@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { assertSafePath, RuntimeError } from '../vendor/pi-paseo/src/state.mjs';
 import { buildOverlay } from '../host/overlay.mjs';
+import { selectHostCompatibility } from '../host/compatibility-profile.mjs';
 import { shipped, sourceDigest, readInstallPointer, bootstrapReadiness, createRecovery, digest } from '../host/release-state.mjs';
 import { verifyRelease, verifyRecovery, assertHostOwned, readReleaseBytes, releaseInventory, privateReleaseDirectory, writeReleaseJson, ensureGuardHelper, withReleaseLock, replaceVerifiedFile } from '../bin/preload.mjs';
 
@@ -35,7 +36,7 @@ function installLocked({ source, hostRoot, base, helper }) {
     bootstrapReadiness(base, releaseRoot, bootstrapRoots);
     // Acquiring the process lock has also probed the pinned private Linux helper.
     ensureGuardHelper(base, path.join(releaseRoot, 'src/flock-helper.py'));
-    return { version: pkg.version, reused: true, releaseRoot, restartRequired: true, hostCompatible: true, helperReady: true, nodeOptionsImport: '--import ' + pathToFileURL(path.join(base, 'bin/preload.mjs')).href };
+    return { version: pkg.version, reused: true, releaseRoot, compatibilityProfile: previousReceipt.compatibilityProfile, restartRequired: true, hostCompatible: true, helperReady: true, nodeOptionsImport: '--import ' + pathToFileURL(path.join(base, 'bin/preload.mjs')).href };
   }
   if (fs.existsSync(releaseRoot)) {
     const fallback = readInstallPointer(base, 'previous');
@@ -47,7 +48,7 @@ function installLocked({ source, hostRoot, base, helper }) {
     try { writeReleaseJson(path.join(base, 'current.json'), candidate); }
     catch (error) { if (bootstrap.before) replaceVerifiedFile(bootstrap.helper, bootstrap.before, [digest(bootstrap.bytes)], { mode: 0o600 }); throw error; }
     if (prepared?.releaseRoot === releaseRoot) fs.unlinkSync(path.join(base, 'prepared.json'));
-    return { version: pkg.version, releaseRoot, reusedPrepared: true, restartRequired: true, hostCompatible: true, helperReady: true, nodeOptionsImport: '--import ' + pathToFileURL(bootstrap.helper).href };
+    return { version: pkg.version, releaseRoot, compatibilityProfile: receipt.compatibilityProfile, reusedPrepared: true, restartRequired: true, hostCompatible: true, helperReady: true, nodeOptionsImport: '--import ' + pathToFileURL(bootstrap.helper).href };
   }
   const stage = path.join(base, 'releases', '.prepare-' + randomUUID()); privateReleaseDirectory(stage);
   let bootstrap, published = false;
@@ -57,7 +58,7 @@ function installLocked({ source, hostRoot, base, helper }) {
     const bootstrapSyntax = spawnSync(process.execPath, ['--check', path.join(stage, 'bin/preload.mjs')], { stdio: 'ignore', timeout: 10000 });
     if (bootstrapSyntax.status !== 0) throw new RuntimeError('INSTALL_BOOTSTRAP_NOT_READY');
     bootstrapReadiness(base, stage, bootstrapRoots, { publish: false });
-    const compatibility = JSON.parse(readReleaseBytes(path.join(stage, 'host/compatibility.json')));
+    const compatibility = selectHostCompatibility({ compatibility: JSON.parse(readReleaseBytes(path.join(stage, 'host/compatibility.json'))), hostRoot, previousReceipt });
     let overlayHost = hostRoot;
     if (previousReceipt) {
       overlayHost = path.join(stage, '.original-host'); privateReleaseDirectory(overlayHost);
@@ -70,6 +71,7 @@ function installLocked({ source, hostRoot, base, helper }) {
     }
     const receipt = buildOverlay({ hostRoot: overlayHost, packageRoot: releaseRoot, overlayRoot: path.join(stage, 'overlay'), compatibility });
     receipt.hostRoot = hostRoot;
+    receipt.compatibilityProfile = compatibility.profileId;
     for (const entry of receipt.entries) { entry.originalFile = path.join(releaseRoot, 'overlay', entry.relative + '.original'); entry.patchedFile = path.join(releaseRoot, 'overlay', entry.relative + '.patched'); }
     writeReleaseJson(path.join(stage, 'overlay/receipt.json'), receipt);
     if (overlayHost !== hostRoot) fs.rmSync(overlayHost, { recursive: true, force: true });
@@ -90,7 +92,7 @@ function installLocked({ source, hostRoot, base, helper }) {
     if (previous) writeReleaseJson(path.join(base, 'previous.json'), previous);
     writeReleaseJson(path.join(base, 'current.json'), pointer); published = true;
     fs.unlinkSync(path.join(base, 'prepared.json'));
-    return { version: pkg.version, releaseRoot, restartRequired: true, nodeOptionsImport: '--import ' + pathToFileURL(bootstrap.helper).href, hostCompatible: true, helperReady: true };
+    return { version: pkg.version, releaseRoot, compatibilityProfile: receipt.compatibilityProfile, restartRequired: true, nodeOptionsImport: '--import ' + pathToFileURL(bootstrap.helper).href, hostCompatible: true, helperReady: true };
   } catch (error) {
     if (!published && bootstrap?.before && digest(readReleaseBytes(bootstrap.helper)) === digest(bootstrap.bytes)) replaceVerifiedFile(bootstrap.helper, bootstrap.before, [digest(bootstrap.bytes)], { mode: 0o600 });
     throw error;

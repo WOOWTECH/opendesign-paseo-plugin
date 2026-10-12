@@ -5,6 +5,8 @@
   "serverSha256": "57b001ded470fc56f20d180544173f20690992aafd79542ac490adeef50911a4",
   "serverRelativePath": "apps/daemon/dist/server.js",
   "adapterProtocolVersion": 1,
+  "profileId": "base-opendesign-0.24.1",
+  "label": "OpenDesign 0.24.1 base",
   "files": {
     "apps/daemon/dist/server.js": "57b001ded470fc56f20d180544173f20690992aafd79542ac490adeef50911a4",
     "apps/daemon/dist/mcp-config.js": "76d67f054a1595779d463555bd1ddab43d5323a5b4428f8af7d4dcfab9f9ffe9",
@@ -12,5 +14,24 @@
     "apps/daemon/dist/plugins/installer.js": "4b3624057c7817fce73f316e4356d477649026d78c3ef5b4b5e207a77ea00f43",
     "apps/daemon/dist/plugins/lockfile.js": "b68c48f97225c6abbf7b0941b7b3b479d879433a699e674300d02d054d3f811e",
     "apps/web/out/index.html": "1328ace1a31672dc64440f76ebb2f2a6b25c4cbafc53fbc921bc51f0e2c8568c"
-  }
+  },
+  "profiles": [
+    {
+      "id": "woow-omnigent-20261012.0425",
+      "label": "Woow Omnigent v0.1.0 / OpenDesign 0.24.1",
+      "imageTag": "20261012.0425-omnigent-v0.1.0",
+      "imageSha256": "9532363f25345fb94ce3504196bafcf91533f572600496d550bec918d03db1a1",
+      "openDesignImageVersion": "0.24.1",
+      "daemonPackageVersion": "0.23.1",
+      "adapterProtocolVersion": 1,
+      "files": {
+        "apps/daemon/dist/server.js": "06c1dd26b8c43e3a997e95dceabbea908d0935dd4cce49b931f5daf24a8a1799",
+        "apps/daemon/dist/mcp-config.js": "76d67f054a1595779d463555bd1ddab43d5323a5b4428f8af7d4dcfab9f9ffe9",
+        "apps/daemon/dist/routes/plugins/index.js": "f0693b55f53721ac834d8b1f87f67c79c5021e593988420cafa9da45231e97b2",
+        "apps/daemon/dist/plugins/installer.js": "4b3624057c7817fce73f316e4356d477649026d78c3ef5b4b5e207a77ea00f43",
+        "apps/daemon/dist/plugins/lockfile.js": "b68c48f97225c6abbf7b0941b7b3b479d879433a699e674300d02d054d3f811e",
+        "apps/web/out/index.html": "fe91b68d81fee458597f50973aff0af496d7f6c6011c5e8c7cf50ec5cf5eb3f6"
+      }
+    }
+  ]
 }

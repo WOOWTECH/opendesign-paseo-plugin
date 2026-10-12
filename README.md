@@ -18,7 +18,7 @@
 
 OpenDesign 原生插件安裝器不會執行 npm 安裝或新增伺服器路由。本套件包含一個小型主機適配層，須先在受支援的 OpenDesign 容器中安裝一次。適配層沿用原生驗證、插件記錄、MCP 設定與專案 API，不另開公開連接埠。
 
-目前相容性以 `host/compatibility.json` 的實際檔案 SHA-256 為準：OpenDesign 映像 0.24.1／內含 daemon 0.23.1，Node.js 24；套件工具最低需要 Node.js 22.19。任意其他 OpenDesign 版本必須先確認來源和更新適配層，安裝器會拒絕不符合指紋的主機。
+目前相容性以 `host/compatibility.json` 的實際檔案 SHA-256 為準：OpenDesign 映像 0.24.1／內含 daemon 0.23.1，以及 WoowTech `20261012.0425-omnigent-v0.1.0` 自訂映像。兩個版本各自有完整的六檔指紋，安裝器會拒絕混合或未知版本。產品使用 Node.js 24；套件工具最低需要 Node.js 22.19。
 
 在容器中，以產品使用者的身分執行：
 
@@ -33,7 +33,7 @@ node scripts/install-host.mjs --home /home/opendesign --host-root /app
 --max-old-space-size=4096 --import file:///home/opendesign/.local/share/opendesign-paseo/bin/preload.mjs
 ```
 
-WoowTech PaaS 使用服務本身的 `config.extraConfig.NODE_OPTIONS` 配置，透過原生配置流程保存並重新部署。先確認產品範本的 chart 與映像仍是已驗證版本。保留原 ENTRYPOINT、Omnigent 啟動鏈與產品參數；不要只修改正在執行的 Pod。
+WoowTech PaaS 使用服務本身的 `config.extraConfig.NODE_OPTIONS` 配置，透過管理員的原生 ORM、全量配置組裝與 Operator 預檢／套用保存。沿用這台服務目前的 chart、映像與驗證設定，保留原 ENTRYPOINT、Omnigent 啟動鏈與產品參數；不要只修改正在執行的 Pod。若服務使用 Omnigent 自訂映像，應使用保留現行映像的配置流程：PaaS 的 Redeploy 會重新套用商品範本的映像，可能移除自訂整合。
 
 `OD_DATA_DIR` 與 HOME 都需要可寫的持久卷。大型 runtime 與代理套件放在 `OD_DATA_DIR/paseo/packages`；各供應商登入資料留在使用者 HOME。需可連線至套件 registry、供應商授權服務與 Paseo relay，Python 3 用於經驗證的 Linux 鎖定 helper。
 

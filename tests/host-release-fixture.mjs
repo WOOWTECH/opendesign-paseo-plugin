@@ -15,7 +15,7 @@ export function releaseFixture(t) {
   const source = path.join(temporary, 'source'), home = path.join(temporary, 'home'), hostRoot = path.join(temporary, 'host');
   for (const directory of [source, home, hostRoot]) fs.mkdirSync(directory);
   const write = (base, relative, bytes) => { const file = path.join(base, relative); fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, bytes); };
-  for (const relative of ['bin/preload.mjs', 'host/overlay.mjs', 'host/release-state.mjs', 'src/flock-helper.py', 'plugin/open-design.json', 'plugin/SKILL.md', 'open-design.json', 'SKILL.md']) write(source, relative, fs.readFileSync(path.join(root, relative)));
+  for (const relative of ['bin/preload.mjs', 'host/overlay.mjs', 'host/release-state.mjs', 'host/compatibility-profile.mjs', 'src/flock-helper.py', 'plugin/open-design.json', 'plugin/SKILL.md', 'open-design.json', 'SKILL.md']) write(source, relative, fs.readFileSync(path.join(root, relative)));
   for (const relative of ['package.json', 'node_modules/@modelcontextprotocol/sdk/package.json']) write(source, relative, JSON.stringify(relative === 'package.json' ? { name: '@woowtech/opendesign-paseo', version: '0.1.0', type: 'module' } : { name: '@modelcontextprotocol/sdk', version: '1.31.0' }));
   write(source, 'package-lock.json', '{"lockfileVersion":3}');
   write(source, 'host/adapter.mjs', 'export function installBridgeBodyParser(){};export function registerPaseoBridge(){};export function stopBeforeNativeUninstall(){};');

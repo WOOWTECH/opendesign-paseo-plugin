@@ -82,6 +82,29 @@ export function releaseSourceDigest(source) {
   }
   return hash.digest('hex');
 }
+/** Data-only exact profile matching is shared with the installer. The stable
+ * bootstrap never imports executable helpers from an immutable release. */
+export function selectCompatibilityProfile(compatibility, hashes) {
+  const object = value => value && typeof value === 'object' && !Array.isArray(value);
+  const fileMap = value => object(value) && Object.keys(value).length > 0 && Object.keys(value).length <= 100 && Object.entries(value).every(([file, hash]) => relativeFile(file) && hex(hash));
+  if (!object(compatibility) || !fileMap(compatibility.files) || !fileMap(hashes)) fail('HOST_NOT_COMPATIBLE');
+  const keys = Object.keys(compatibility.files).sort();
+  const exactKeys = files => JSON.stringify(Object.keys(files).sort()) === JSON.stringify(keys);
+  if (!exactKeys(hashes) || compatibility.profiles !== undefined && (!Array.isArray(compatibility.profiles) || compatibility.profiles.length > 16)) fail('HOST_NOT_COMPATIBLE');
+  const base = { ...compatibility, id: compatibility.profileId ?? 'base-opendesign-0.24.1' };
+  delete base.profiles;
+  const profiles = [base, ...(compatibility.profiles || [])], ids = new Set(), fingerprints = new Set();
+  for (const profile of profiles) {
+    if (!object(profile) || typeof profile.id !== 'string' || !/^[a-z0-9][a-z0-9.-]{0,100}$/.test(profile.id) || ids.has(profile.id) || !fileMap(profile.files) || !exactKeys(profile.files)) fail('HOST_NOT_COMPATIBLE');
+    if (['openDesignImageVersion', 'daemonPackageVersion', 'adapterProtocolVersion'].some(key => profile[key] !== undefined && profile[key] !== compatibility[key])) fail('HOST_NOT_COMPATIBLE');
+    const fingerprint = JSON.stringify(keys.map(file => profile.files[file]));
+    if (fingerprints.has(fingerprint)) fail('HOST_NOT_COMPATIBLE');
+    ids.add(profile.id); fingerprints.add(fingerprint);
+  }
+  const matches = profiles.filter(profile => keys.every(file => hashes[file] === profile.files[file]));
+  if (matches.length !== 1) fail('HOST_NOT_COMPATIBLE');
+  return Object.freeze({ ...matches[0], files: Object.freeze({ ...matches[0].files }) });
+}
 function pointerRoot(base, pointer) {
   if (pointer?.protocolVersion !== 1 || !hex(pointer.manifestSha256) || typeof pointer.releaseRoot !== 'string') fail('RELEASE_INVALID_POINTER');
   const relative = path.relative(path.join(base, 'releases'), pointer.releaseRoot);
@@ -119,7 +142,8 @@ export function verifyRelease(base, pointer, { hostRoot = pointer?.hostRoot } = 
   hostRoot ||= receipt.hostRoot;
   receiptShape(receipt, hostRoot, root, path.join(root, 'overlay'));
   const compatibility = json(path.join(root, 'host/compatibility.json'));
-  if (!compatibility.files || Object.keys(compatibility.files).length !== receipt.entries.length || receipt.entries.some(entry => compatibility.files[entry.relative] !== entry.before || sha(readReleaseBytes(entry.patchedFile)) !== entry.after)) fail('RELEASE_INCOMPATIBLE_RECEIPT');
+  let profile; try { profile = selectCompatibilityProfile(compatibility, Object.fromEntries(receipt.entries.map(entry => [entry.relative, entry.before]))); } catch { fail('RELEASE_INCOMPATIBLE_RECEIPT'); }
+  if (receipt.compatibilityProfile !== undefined && receipt.compatibilityProfile !== profile.id || receipt.entries.some(entry => sha(readReleaseBytes(entry.patchedFile)) !== entry.after)) fail('RELEASE_INCOMPATIBLE_RECEIPT');
   return freezeReceipt(receipt);
   } catch (error) { if (error instanceof ReleaseError) throw error; fail('RELEASE_VERIFICATION_FAILED'); }
 }
