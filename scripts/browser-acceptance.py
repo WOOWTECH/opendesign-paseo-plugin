@@ -176,6 +176,23 @@ def signed_in_providers(config):
     return selected[:]
 
 
+def catalog_selection(catalog, provider, model, mode):
+    require(isinstance(catalog, dict) and catalog.get('provider') == provider and
+            all(isinstance(catalog.get(key), list) and all(isinstance(row, dict) and
+                isinstance(row.get('id'), str) and row['id'] for row in catalog[key])
+                for key in ('models', 'modes')), 'ACCEPTANCE_CATALOG_SCHEMA')
+    require(isinstance(model, str) and bool(model.strip()), 'ACCEPTANCE_EXPLICIT_UI_SELECTION_REQUIRED')
+    require(any(row['id'] == model for row in catalog['models']), 'ACCEPTANCE_INVALID_MODEL')
+    blank_mode = mode is None or isinstance(mode, str) and not mode.strip()
+    if not catalog['modes']:
+        default = catalog.get('defaultModeId')
+        require(blank_mode and (default is None or isinstance(default, str) and not default.strip()), 'ACCEPTANCE_INVALID_MODE')
+        return model, None
+    require(not blank_mode, 'ACCEPTANCE_MODE_REQUIRED')
+    require(isinstance(mode, str) and any(row['id'] == mode for row in catalog['modes']), 'ACCEPTANCE_INVALID_MODE')
+    return model, mode
+
+
 def can_mutate_request(method, url, *, origin, phase, allowed, body=None, target=None, authorized=None):
     if method in ('GET', 'HEAD', 'OPTIONS'):
         return True
@@ -375,27 +392,47 @@ class Harness:
             raise AcceptanceError('ACCEPTANCE_SCREENSHOT_FAILED') from None
         self.evidence.setdefault('screenshots', []).append({'name': label, 'masked': True})
 
+    async def setup_catalog(self, provider):
+        await self.page.locator(self.selectors['provider']).select_option(provider)
+        def catalog_response(response):
+            if urlsplit(response.url).path != '/api/paseo-bridge' or response.request.method != 'POST':
+                return False
+            try:
+                request = json.loads(response.request.post_data or '{}')
+                return request.get('action') == 'models' and request.get('provider') == provider
+            except Exception:
+                return False
+        async with self.page.expect_response(catalog_response, timeout=180000) as pending:
+            await self.page.locator(self.selectors['models']).click()
+        response = await pending.value
+        require(response.ok, 'ACCEPTANCE_CATALOG_HTTP_FAILED')
+        value = await response.json()
+        require(isinstance(value, dict), 'ACCEPTANCE_CATALOG_SCHEMA')
+        return value.get('catalog', value)
+
+    async def no_mode_control(self, page, selector, *, allow_absent=False):
+        require(isinstance(selector, str) and selector, 'ACCEPTANCE_MODE_SELECTOR_REQUIRED')
+        locator = page.locator(selector)
+        if allow_absent and await locator.count() == 0:
+            return
+        require(await locator.is_disabled() and await locator.input_value() == '' and
+                not await page.locator(selector + ' option').evaluate_all('(nodes) => nodes.map(n => n.value).filter(Boolean)'),
+                'ACCEPTANCE_MODE_UI_MISMATCH')
+
+    async def setup_mode(self, mode):
+        if mode is None:
+            await self.no_mode_control(self.page, self.selectors['mode'])
+        else:
+            await self.page.locator(self.selectors['mode']).select_option(mode)
+            require(await self.page.locator(self.selectors['mode']).input_value() == mode, 'ACCEPTANCE_MODE_UI_MISMATCH')
+
     async def models(self):
         await self.setup()
         rows = []
         for provider in PROVIDERS:
             row = {'provider': provider, 'passed': False}
             try:
-                await self.page.locator(self.selectors['provider']).select_option(provider)
-                def catalog_response(response):
-                    if urlsplit(response.url).path != '/api/paseo-bridge' or response.request.method != 'POST':
-                        return False
-                    try:
-                        request = json.loads(response.request.post_data or '{}')
-                        return request.get('action') == 'models' and request.get('provider') == provider
-                    except Exception:
-                        return False
-                async with self.page.expect_response(catalog_response, timeout=180000) as pending:
-                    await self.page.locator(self.selectors['models']).click()
-                response = await pending.value
-                require(response.ok, 'ACCEPTANCE_CATALOG_HTTP_FAILED')
-                value = await response.json()
-                catalog = value.get('catalog', value)
+                catalog = await self.setup_catalog(provider)
                 require(isinstance(catalog, dict) and catalog.get('provider') == provider and isinstance(catalog.get('models'), list), 'ACCEPTANCE_CATALOG_SCHEMA')
                 row['modelCount'] = len(catalog['models'])
                 row['modeCount'] = len(catalog.get('modes') or [])
@@ -407,11 +444,12 @@ class Harness:
                 available = await self.page.locator(self.selectors['model'] + ' option').evaluate_all('(nodes) => nodes.map(n => n.value).filter(Boolean)')
                 require(set(available) == {entry['id'] for entry in catalog['models'][:2000]}, 'ACCEPTANCE_CATALOG_UI_MISMATCH')
                 selected = self.config.get('models', {}).get(provider) or next((m['id'] for m in catalog['models'] if m.get('isDefault')), catalog['models'][0]['id'])
+                configured_mode = self.config.get('modes', {}).get(provider)
+                mode = catalog.get('defaultModeId') if configured_mode is None or configured_mode == '' else configured_mode
+                selected, mode = catalog_selection(catalog, provider, selected, mode)
                 await self.page.locator(self.selectors['model']).select_option(selected)
-                mode = self.config.get('modes', {}).get(provider) or catalog.get('defaultModeId')
-                require(mode and any(entry['id'] == mode for entry in catalog.get('modes', [])), 'ACCEPTANCE_MODE_REQUIRED')
-                await self.page.locator(self.selectors['mode']).select_option(mode)
-                row['selectionConfirmed'] = await self.page.locator(self.selectors['model']).input_value() == selected and await self.page.locator(self.selectors['mode']).input_value() == mode
+                await self.setup_mode(mode)
+                row['selectionConfirmed'] = await self.page.locator(self.selectors['model']).input_value() == selected
                 row['passed'] = row['selectionConfirmed']
             except Exception as error:
                 row['code'] = safe_code(error)
@@ -635,14 +673,30 @@ class Harness:
             marker = 'OD_PASEO_' + uuid.uuid4().hex[:12]
             values = {'provider': provider, 'model': self.config.get('models', {}).get(provider, ''), 'mode': self.config.get('modes', {}).get(provider, ''), 'title': title, 'prompt': f'Connection acceptance only. Do not use tools or edit files. Remember {marker}. Reply with exactly {marker}.'}
             try:
-                require(values['model'] and values['mode'], 'ACCEPTANCE_EXPLICIT_UI_SELECTION_REQUIRED')
+                # Catalog reads use a separate protected context. Official App
+                # contexts and their storage state never receive OD credentials.
+                protected = await self.browser.new_context(http_credentials={'username': self.auth['username'], 'password': self.auth['password'], 'origin': self.origin}, service_workers='block')
+                try:
+                    response = await protected.request.post(self.origin + '/api/paseo-bridge', data={'action': 'models', 'provider': provider}, max_redirects=0, timeout=180000)
+                    require(response.ok, 'ACCEPTANCE_CATALOG_HTTP_FAILED')
+                    catalog = await response.json()
+                    require(isinstance(catalog, dict), 'ACCEPTANCE_CATALOG_SCHEMA')
+                    model, mode = catalog_selection(catalog.get('catalog', catalog), provider, values['model'], values['mode'])
+                finally:
+                    await protected.close()
+                values.update(model=model, mode=mode or '')
                 await self.page.goto(start, wait_until='domcontentloaded')
                 if official.get('actions', {}).get('selectDaemon'):
                     await self.steps(self.page, official['actions']['selectDaemon'], {})
                 await self.confirm_official_target(self.page, official)
                 await self.steps(self.page, official['actions']['newAgent'], values)
-                for key in ('provider', 'model', 'mode'):
+                for key in ('provider', 'model'):
                     await self.official_select(self.page, key, values, official)
+                if mode is None:
+                    await self.no_mode_control(self.page, selectors.get('mode'), allow_absent=True)
+                else:
+                    await self.official_select(self.page, 'mode', values, official)
+                row.update(model=model, modeId=mode)
                 row['selectionConfirmed'] = True
                 await self.page.locator(selectors['title']).fill(title)
                 before = await self.assistant_cursor(self.page, selectors['assistant'])
@@ -690,13 +744,13 @@ class Harness:
         await self.setup()
         rows = []
         for provider in selected:
-            require(self.config.get('models', {}).get(provider) and self.config.get('modes', {}).get(provider), 'ACCEPTANCE_EXPLICIT_UI_SELECTION_REQUIRED')
-            await self.page.locator(self.selectors['provider']).select_option(provider)
-            async with self.page.expect_response(lambda r: urlsplit(r.url).path == '/api/paseo-bridge' and r.request.method == 'POST' and 'models' in (r.request.post_data or ''), timeout=180000) as model_pending:
-                await self.page.locator(self.selectors['models']).click()
-            require((await model_pending.value).ok, 'ACCEPTANCE_CATALOG_HTTP_FAILED')
-            await self.page.locator(self.selectors['model']).select_option(self.config['models'][provider])
-            await self.page.locator(self.selectors['mode']).select_option(self.config['modes'][provider])
+            model = self.config.get('models', {}).get(provider)
+            require(isinstance(model, str) and bool(model.strip()), 'ACCEPTANCE_EXPLICIT_UI_SELECTION_REQUIRED')
+            catalog = await self.setup_catalog(provider)
+            model, mode = catalog_selection(catalog, provider, model, self.config.get('modes', {}).get(provider))
+            await self.page.locator(self.selectors['model']).select_option(model)
+            require(await self.page.locator(self.selectors['model']).input_value() == model, 'ACCEPTANCE_MODEL_UI_MISMATCH')
+            await self.setup_mode(mode)
             prior_status = unwrap_status(await self.bridge())
             prior_receipt = prior_status.get('lastVerification') or prior_status.get('acceptance') or {}
             requested_at = time.time()
@@ -726,8 +780,8 @@ class Harness:
             matched = [row for row in receipt.get('providers', []) if row.get('provider') == provider]
             require(len(matched) == 1, 'ACCEPTANCE_GUI_TEST_SCHEMA')
             row = matched[0]
-            passed = row.get('passed') is True and row.get('firstReply') is True and row.get('followup') is True and row.get('cleanup', {}).get('archived') is True and row.get('model') == self.config['models'][provider] and row.get('modeId') == self.config['modes'][provider]
-            rows.append({'provider': provider, 'passed': passed, 'firstReply': row.get('firstReply') is True, 'followup': row.get('followup') is True, 'cleanup': {'archived': row.get('cleanup', {}).get('archived') is True}})
+            passed = row.get('passed') is True and row.get('firstReply') is True and row.get('followup') is True and row.get('cleanup', {}).get('archived') is True and row.get('model') == model and row.get('modeId') == mode
+            rows.append({'provider': provider, 'model': model, 'modeId': mode, 'passed': passed, 'firstReply': row.get('firstReply') is True, 'followup': row.get('followup') is True, 'cleanup': {'archived': row.get('cleanup', {}).get('archived') is True}})
         self.evidence['providers'] = rows
         self.evidence['unverifiedProviders'] = [p for p in PROVIDERS if p not in selected]
         self.evidence['allProvidersVerified'] = all(any(row['provider'] == provider and row['passed'] for row in rows) for provider in PROVIDERS)

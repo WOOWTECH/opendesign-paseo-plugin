@@ -206,7 +206,7 @@ test('actual setup HTML/JS renders protected diagnostics, three POST catalogs an
       try { value = JSON.parse(body); } catch { res.statusCode = 400; res.end('{}'); return; }
       if (value.action === 'models') {
         catalogs.push(value.provider);
-        res.end(JSON.stringify({ provider: value.provider, defaultModeId: 'default', modes: [{ id: 'default', label: 'Default' }], models: [{ id: `${value.provider}-fixture-model`, label: `${value.provider} fixture`, isDefault: true }] }));
+        res.end(JSON.stringify({ provider: value.provider, defaultModeId: value.provider === 'pi' ? null : 'default', modes: value.provider === 'pi' ? [] : [{ id: 'default', label: 'Default' }], models: [{ id: `${value.provider}-fixture-model`, label: `${value.provider} fixture`, isDefault: true }] }));
       } else { writeActions.push(value.action); res.statusCode = 400; res.end('{}'); }
       return;
     }
@@ -246,6 +246,7 @@ async def check():
     await harness.models()
     assert len(harness.evidence['providers']) == 3
     assert all(row['selectionConfirmed'] for row in harness.evidence['providers'])
+    assert next(row for row in harness.evidence['providers'] if row['provider']=='pi')['modeCount'] == 0
     args.phase='mobile'
     await harness.mobile()
     assert all(row['passed'] for row in harness.evidence['viewports'])
@@ -262,6 +263,136 @@ asyncio.run(check())
   assert.deepEqual(JSON.parse(result.stdout), { passed: true, models: 3, mobileWidths: 4, protected: true });
   assert.deepEqual(catalogs, ['claude', 'codex', 'pi']);
   assert.deepEqual(writeActions, []);
+});
+
+test('actual setup acceptance omits Pi zero modes and strictly validates catalog, UI state and fresh receipt selection', { timeout: 60000 }, async t => {
+  const assets = Object.fromEntries([
+    ['/paseo/setup', 'text/html', 'setup.html'],
+    ['/paseo/assets/setup.js', 'text/javascript', 'setup.js'],
+    ['/paseo/assets/setup.css', 'text/css', 'setup.css'],
+  ].map(([route, type, file]) => [route, { type, body: fs.readFileSync(new URL('../ui/' + file, import.meta.url)) }]));
+  const cases = [
+    { name: 'pi-omitted', provider: 'pi' },
+    { name: 'pi-null', provider: 'pi', mode: null },
+    { name: 'pi-blank', provider: 'pi', mode: '' },
+    { name: 'pi-unknown-mode', provider: 'pi', mode: 'default', code: 'ACCEPTANCE_INVALID_MODE' },
+    { name: 'pi-missing-model', provider: 'pi', model: '', code: 'ACCEPTANCE_EXPLICIT_UI_SELECTION_REQUIRED' },
+    { name: 'pi-unknown-model', provider: 'pi', model: 'unknown', code: 'ACCEPTANCE_INVALID_MODEL' },
+    { name: 'pi-invalid-default', provider: 'pi', defaultModeId: 'unsupported', code: 'ACCEPTANCE_INVALID_MODE' },
+    { name: 'pi-mode-enabled', provider: 'pi', modeEnabled: true, code: 'ACCEPTANCE_MODE_UI_MISMATCH' },
+    { name: 'pi-stale-receipt', provider: 'pi', stale: true, code: 'ACCEPTANCE_FRESH_RECEIPT_REQUIRED', request: true },
+    { name: 'pi-wrong-receipt-mode', provider: 'pi', receiptMode: '', code: 'ACCEPTANCE_GUI_TEST_FAILED', request: true },
+    { name: 'pi-wrong-receipt-model', provider: 'pi', receiptModel: 'other', code: 'ACCEPTANCE_GUI_TEST_FAILED', request: true },
+    { name: 'claude-default', provider: 'claude', mode: 'default' },
+    { name: 'claude-missing-mode', provider: 'claude', code: 'ACCEPTANCE_MODE_REQUIRED' },
+    { name: 'claude-unknown-mode', provider: 'claude', mode: 'unknown', code: 'ACCEPTANCE_INVALID_MODE' },
+  ];
+  const requests = [];
+  const tlsRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'acceptance-selection-tls-'));
+  t.after(() => fs.rmSync(tlsRoot, { recursive: true, force: true }));
+  const key = path.join(tlsRoot, 'key.pem'), cert = path.join(tlsRoot, 'cert.pem');
+  await run('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', key, '-out', cert, '-days', '1', '-subj', '/CN=127.0.0.1', '-addext', 'subjectAltName=IP:127.0.0.1'], { timeout: 15000 });
+  const status = {
+    schemaVersion: 1, version: '0.11.2', installed: true, phase: 'running', desiredEnabled: true,
+    daemon: { owned: true, ready: true, running: true, reachable: true },
+    providers: ['claude', 'codex', 'pi'].map(provider => ({ provider, status: 'ready', authentication: 'needs_chat_verification' })),
+    onboarding: { id: 'fixture-onboarding' },
+    lastVerification: { checkedAt: '2000-01-01T00:00:00.000Z', providers: [] },
+  };
+  const server = https.createServer({ key: fs.readFileSync(key), cert: fs.readFileSync(cert) }, async (req, res) => {
+    if (!req.headers.authorization) { res.statusCode = 401; res.setHeader('WWW-Authenticate', 'Basic realm="Fixture"'); res.end('Authentication required'); return; }
+    const route = new URL(req.url, 'https://fixture.invalid').pathname;
+    if (assets[route]) { res.setHeader('Content-Type', assets[route].type); res.end(assets[route].body); return; }
+    if (route !== '/api/paseo-bridge') { res.statusCode = 404; res.end(''); return; }
+    res.setHeader('Content-Type', 'application/json');
+    if (req.method === 'GET') { res.end(JSON.stringify(status)); return; }
+    let body = '';
+    for await (const chunk of req) body += chunk;
+    const value = JSON.parse(body), fixture = cases.find(row => row.name === req.headers['x-fixture-scenario']);
+    if (!fixture) { res.statusCode = 400; res.end('{}'); return; }
+    requests.push({ scenario: fixture.name, value });
+    if (value.action === 'models') {
+      res.end(JSON.stringify({ provider: value.provider, models: [{ id: `${value.provider}-fixture-model`, label: 'Fixture model' }],
+        modes: value.provider === 'pi' ? [] : [{ id: 'default', label: 'Default' }],
+        defaultModeId: fixture.defaultModeId ?? (value.provider === 'pi' ? null : 'default') }));
+    } else if (value.action === 'acceptance') {
+      res.end(JSON.stringify({ checkedAt: fixture.stale ? status.lastVerification.checkedAt : new Date().toISOString(),
+        providers: [{ provider: fixture.provider, model: fixture.receiptModel ?? `${fixture.provider}-fixture-model`,
+          modeId: Object.hasOwn(fixture, 'receiptMode') ? fixture.receiptMode : fixture.provider === 'pi' ? null : 'default',
+          passed: true, firstReply: true, followup: true, cleanup: { archived: true } }] }));
+    } else { res.statusCode = 400; res.end('{}'); }
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const origin = `https://127.0.0.1:${server.address().port}`;
+  let result;
+  try {
+    result = await run('python3', ['-c', bootstrap + `
+import asyncio, tempfile, json
+from pathlib import Path
+from types import SimpleNamespace
+from playwright.async_api import async_playwright
+async def check():
+ with tempfile.TemporaryDirectory(prefix='od-acceptance-selection-') as temporary:
+  private=Path(temporary)
+  original_private_path=module.private_path
+  module.private_path=lambda file,root=private: original_private_path(file,root)
+  origin=sys.argv[2]
+  target={'base':origin,'workspaceId':101,'serviceId':202,'namespace':'fixture-namespace','release':'fixture-release'}
+  async with async_playwright() as playwright:
+   browser=await playwright.chromium.launch(headless=True)
+   try:
+    outcomes=[]
+    for fixture in json.loads(sys.argv[3]):
+     provider=fixture['provider']
+     config={'authorizedTarget':{'baseOrigin':origin,**{k:v for k,v in target.items() if k!='base'}},'signedInProviders':[provider],
+       'models':{provider:fixture.get('model',provider+'-fixture-model')}}
+     if 'mode' in fixture: config['modes']={provider:fixture['mode']}
+     harness=module.Harness(SimpleNamespace(phase='acceptance',allow_mutation=True),config,target,{'username':'fixture','password':'fixture-only'})
+     harness.screenshot_dir=private/fixture['name']
+     harness.context=await browser.new_context(http_credentials={'username':'fixture','password':'fixture-only','origin':origin},
+       extra_http_headers={'X-Fixture-Scenario':fixture['name']},ignore_https_errors=True,service_workers='block')
+     await harness.context.route('**/*',harness.guard)
+     harness.page=await harness.context.new_page()
+     harness.page.set_default_timeout(3000)
+     if fixture.get('modeEnabled'):
+      original_setup=harness.setup
+      async def altered_setup():
+       await original_setup()
+       await harness.page.evaluate("() => document.querySelector('#model').addEventListener('change',()=>{document.querySelector('#mode').disabled=false})")
+      harness.setup=altered_setup
+     code=None
+     try: await harness.acceptance()
+     except module.AcceptanceError as error: code=error.code
+     assert code == fixture.get('code'), fixture['name']+': '+str(code)
+     if not code:
+      row=harness.evidence['providers'][0]
+      assert row['passed'] and row['model'] == provider+'-fixture-model'
+      assert row['modeId'] == ('default' if provider=='claude' else None)
+      if provider=='pi':
+       assert await harness.page.locator('#mode').is_disabled()
+       assert await harness.page.locator('#mode').input_value() == ''
+     assert harness.events['blockedWrites'] == 0
+     outcomes.append({'name':fixture['name'],'code':code})
+     await harness.context.close()
+    print(json.dumps({'passed':True,'cases':len(outcomes),'piModesOmitted':True}))
+   finally: await browser.close()
+asyncio.run(check())
+`, script, origin, JSON.stringify(cases)], { timeout: 50000 });
+  } catch {
+    assert.fail('Local setup selection fixture failed; no raw browser errors or credentials retained.');
+  }
+  assert.deepEqual(JSON.parse(result.stdout), { passed: true, cases: cases.length, piModesOmitted: true });
+  for (const fixture of cases) {
+    const writes = requests.filter(row => row.scenario === fixture.name && row.value.action === 'acceptance');
+    assert.equal(writes.length, !fixture.code || fixture.request ? 1 : 0, fixture.name);
+    if (writes.length) {
+      assert.deepEqual(writes[0].value.models, { [fixture.provider]: `${fixture.provider}-fixture-model` });
+      assert.deepEqual(writes[0].value.providers, [fixture.provider]);
+      if (fixture.provider === 'pi') assert.equal(Object.hasOwn(writes[0].value, 'modes'), false);
+      else assert.deepEqual(writes[0].value.modes, { claude: 'default' });
+    }
+  }
 });
 
 test('verified native Add/import controls and scoped Integrations entry work with retained native sections', { timeout: 30000 }, async () => {
