@@ -1,0 +1,16 @@
+{
+  "openDesignImageVersion": "0.24.1",
+  "daemonPackageVersion": "0.23.1",
+  "sourceRevision": "89e64d813bb1c7a11519b3f668f011f7017637d7",
+  "serverSha256": "57b001ded470fc56f20d180544173f20690992aafd79542ac490adeef50911a4",
+  "serverRelativePath": "apps/daemon/dist/server.js",
+  "adapterProtocolVersion": 1,
+  "files": {
+    "apps/daemon/dist/server.js": "57b001ded470fc56f20d180544173f20690992aafd79542ac490adeef50911a4",
+    "apps/daemon/dist/mcp-config.js": "76d67f054a1595779d463555bd1ddab43d5323a5b4428f8af7d4dcfab9f9ffe9",
+    "apps/daemon/dist/routes/plugins/index.js": "f0693b55f53721ac834d8b1f87f67c79c5021e593988420cafa9da45231e97b2",
+    "apps/daemon/dist/plugins/installer.js": "4b3624057c7817fce73f316e4356d477649026d78c3ef5b4b5e207a77ea00f43",
+    "apps/daemon/dist/plugins/lockfile.js": "b68c48f97225c6abbf7b0941b7b3b479d879433a699e674300d02d054d3f811e",
+    "apps/web/out/index.html": "1328ace1a31672dc64440f76ebb2f2a6b25c4cbafc53fbc921bc51f0e2c8568c"
+  }
+}

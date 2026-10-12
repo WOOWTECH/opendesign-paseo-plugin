@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Paseo 安裝與連線設定 · OpenDesign</title>
+  <link rel="stylesheet" href="/paseo/assets/setup.css">
+  <script src="/paseo/assets/setup.js" defer></script>
+</head>
+<body class="paseo-setup">
+  <a class="skip-link" href="#main">跳至設定</a>
+  <main id="main">
+    <header class="page-header">
+      <a href="/" class="back-link">← OpenDesign</a>
+      <p class="eyebrow">整合服務</p>
+      <h1>Paseo 安裝與連線設定</h1>
+      <p>在同一個地方管理服務、登入帳號、連接官方 App，並確認模型能正常對話。</p>
+    </header>
+    <noscript><p class="notice">請啟用 JavaScript 後使用設定。此頁需要 OpenDesign 登入。</p></noscript>
+    <p id="notice" class="notice" role="status" aria-live="polite" aria-atomic="true">正在讀取狀態…</p>
+    <section class="card" aria-labelledby="service-title">
+      <div class="section-heading">
+        <div><p class="eyebrow">1 · 服務</p><h2 id="service-title">啟動 Paseo</h2></div>
+        <span id="phase" class="badge">尚未確認</span>
+      </div>
+      <p>首次啟動會安裝需要的套件。停止後，服務會保持停止，直到你再次啟動。</p>
+      <dl class="facts">
+        <div><dt>版本</dt><dd id="version">尚未確認</dd></div>
+        <div><dt>目前連線</dt><dd id="daemon">尚未確認</dd></div>
+        <div><dt>更新時間</dt><dd id="observed">尚未讀取</dd></div>
+      </dl>
+      <div class="actions">
+        <button id="enable" class="primary" type="button" disabled>安裝並啟動</button>
+        <button id="disable" type="button" disabled>停止服務</button>
+        <button id="refresh" type="button">重新整理</button>
+      </div>
+      <p id="refresh-note" class="hint">每 15 秒更新，最多約 5 分鐘；操作期間會暫停更新。</p>
+    </section>
+    <section class="card" aria-labelledby="accounts-title">
+      <p class="eyebrow">2 · 帳號與模型</p><h2 id="accounts-title">選擇可用的模型</h2>
+      <ul class="provider-list" aria-label="各服務的目前狀態">
+        <li><strong>Claude Code</strong><span id="provider-claude">尚未確認</span></li>
+        <li><strong>Codex</strong><span id="provider-codex">尚未確認</span></li>
+        <li><strong>Pi</strong><span id="provider-pi">尚未確認</span></li>
+      </ul>
+      <div class="fields">
+        <div><label for="provider">服務</label><select id="provider"><option value="claude">Claude Code</option><option value="codex">Codex</option><option value="pi">Pi</option></select></div>
+        <div><label for="model">模型</label><select id="model" disabled><option value="">先讀取模型</option></select></div>
+        <div><label for="mode">模式</label><select id="mode" disabled><option value="">使用服務預設</option></select></div>
+      </div>
+      <div class="actions">
+        <button id="models" type="button" disabled>讀取可用模型</button>
+        <button id="login" type="button" disabled>登入與帳號設定</button>
+      </div>
+      <p class="hint">有安裝工具不代表已登入。請在官方登入頁完成授權，密碼與 API 金鑰留在官方流程中。</p>
+      <section id="login-panel" class="transient" aria-labelledby="login-title" hidden>
+        <h3 id="login-title">官方帳號授權</h3>
+        <p id="login-message"></p>
+        <p id="login-code" hidden></p>
+        <a id="login-link" class="button-link primary" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" hidden>開啟官方登入頁</a>
+        <div id="login-input" hidden>
+          <label for="login-code-input">授權回呼網址或代碼</label>
+          <input id="login-code-input" type="text" maxlength="2048" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="login-input-hint">
+          <p id="login-input-hint" class="hint">只有官方授權流程要求時才需要。這裡只接受授權結果，請勿輸入帳號密碼。</p>
+          <button id="login-submit" type="button" disabled>提交授權結果</button>
+        </div>
+        <div class="actions">
+          <button id="login-status" type="button" disabled>我已完成登入，確認狀態</button>
+          <button id="login-cancel" type="button" disabled>取消登入</button>
+          <button id="login-close" type="button">隱藏登入資訊</button>
+        </div>
+      </section>
+    </section>
+    <section class="card" aria-labelledby="pair-title">
+      <p class="eyebrow">3 · 官方 App</p><h2 id="pair-title">連接 Paseo App</h2>
+      <p>啟動服務後，建立配對連結，再到官方 App 完成配對。配對連結只暫時顯示在這個設定頁。</p>
+      <div class="actions">
+        <button id="pair" type="button" disabled>建立配對連結</button>
+        <a class="button-link" href="https://app.paseo.sh/" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">開啟官方 App</a>
+      </div>
+      <div id="pair-panel" class="transient" hidden>
+        <p>請在 2 分鐘內開啟。離開或隱藏此頁會清除畫面上的配對資訊。</p>
+        <a id="pair-link" class="button-link primary" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">到官方 App 配對</a>
+        <button id="pair-close" type="button">隱藏配對資訊</button>
+      </div>
+      <p class="hint">建立連結不代表配對已完成；請以官方 App 的連線狀態為準。</p>
+    </section>
+    <section class="card" aria-labelledby="test-title">
+      <p class="eyebrow">4 · 確認連線</p><h2 id="test-title">測試兩輪對話</h2>
+      <p>用上方選定的模型與模式，實際測試第一則回覆與後續回覆。測試可能需要幾分鐘。</p>
+      <div class="actions">
+        <button id="acceptance" class="primary" type="button" disabled>測試選定模型</button>
+        <button id="onboarding" type="button" disabled>開啟設定對話</button>
+        <a id="onboarding-link" class="button-link" hidden>回到同一個設定對話</a>
+      </div>
+      <p id="test-result" role="status" aria-live="polite">尚未在此頁執行測試。</p>
+      <h3>上次測試紀錄</h3>
+      <p id="history-time" class="hint">尚無測試紀錄。紀錄不代表目前仍能對話。</p>
+      <div class="table-scroll"><table>
+        <caption class="visually-hidden">上次各服務的兩輪對話測試結果</caption>
+        <thead><tr><th scope="col">服務</th><th scope="col">模型／模式</th><th scope="col">第一則回覆</th><th scope="col">後續回覆</th><th scope="col">結果</th></tr></thead>
+        <tbody id="history"></tbody>
+      </table></div>
+    </section>
+    <footer><p>帳號授權與配對資訊只用於設定流程。請勿把密碼、金鑰或配對連結貼到聊天。</p></footer>
+  </main>
+</body>
+</html>

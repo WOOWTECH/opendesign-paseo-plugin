@@ -1,0 +1,64 @@
+/* Shared with the host entry; all rules are scoped to bridge-owned elements. */
+.paseo-setup {
+  --paseo-ink: #202025;
+  --paseo-muted: #5e6068;
+  --paseo-line: #dddde3;
+  --paseo-accent: #32323c;
+  margin: 0;
+  background: #f7f7f9;
+  color: var(--paseo-ink);
+  font: 16px/1.65 system-ui, -apple-system, "Noto Sans TC", sans-serif;
+}
+.paseo-setup *, .paseo-native-entry * { box-sizing: border-box; }
+.paseo-setup main { width: min(960px, 100%); margin: auto; padding: 36px 24px 48px; }
+.paseo-setup h1 { font-size: clamp(1.7rem, 4vw, 2.25rem); line-height: 1.3; margin: 10px 0 16px; }
+.paseo-setup h2 { font-size: 1.3rem; margin: 0 0 12px; }
+.paseo-setup h3 { font-size: 1rem; margin: 20px 0 8px; }
+.paseo-setup p { margin: 8px 0 18px; }
+.paseo-setup a { color: #35357d; text-underline-offset: .2em; }
+.paseo-setup .eyebrow { color: var(--paseo-muted); font-size: .85rem; margin: 16px 0 6px; }
+.paseo-setup .card { padding: 24px; background: #fff; border: 1px solid var(--paseo-line); border-radius: 16px; margin-top: 20px; }
+.paseo-setup .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.paseo-setup .badge { background: #ededf2; padding: 4px 12px; border-radius: 20px; font-size: .9rem; }
+.paseo-setup .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 24px 0; }
+.paseo-setup dt { color: var(--paseo-muted); font-size: .85rem; }
+.paseo-setup dd { margin: 0; overflow-wrap: anywhere; }
+.paseo-setup .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 14px 0; }
+.paseo-setup button, .paseo-setup .button-link {
+  display: inline-flex; justify-content: center; align-items: center;
+  font: inherit; font-size: .95rem; line-height: 1.4; min-height: 44px; padding: 10px 16px;
+  border: 1px solid #bbbbc5; border-radius: 9px; background: #fff; color: var(--paseo-ink);
+  cursor: pointer; text-decoration: none; overflow-wrap: anywhere;
+}
+.paseo-setup .primary { color: #fff; background: var(--paseo-accent); border-color: var(--paseo-accent); }
+.paseo-setup button:disabled { cursor: default; color: #73737c; background: #ededf0; border-color: #d4d4db; }
+.paseo-setup :focus-visible, .paseo-native-entry :focus-visible { outline: 3px solid #6868b5; outline-offset: 4px; }
+.paseo-setup .fields { display: grid; grid-template-columns: 1fr 2fr 1.2fr; gap: 14px; margin: 24px 0; }
+.paseo-setup label { display: block; font-size: .9rem; margin-bottom: 6px; }
+.paseo-setup input, .paseo-setup select { width: 100%; min-height: 44px; padding: 8px; font: inherit; border: 1px solid #bbbbc5; border-radius: 8px; background: #fff; color: var(--paseo-ink); }
+.paseo-setup .hint, .paseo-setup footer { font-size: .85rem; color: var(--paseo-muted); }
+.paseo-setup .provider-list { list-style: none; padding: 0; margin: 16px 0; }
+.paseo-setup .provider-list li { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--paseo-line); }
+.paseo-setup .provider-list span { text-align: right; color: var(--paseo-muted); }
+.paseo-setup .notice { border-left: 3px solid #77779c; background: #ededf5; padding: 14px 16px; overflow-wrap: anywhere; }
+.paseo-setup .transient { background: #f2f2f8; padding: 16px; border-radius: 10px; margin-top: 16px; }
+.paseo-setup .table-scroll { overflow-x: auto; }
+.paseo-setup table { border-collapse: collapse; width: 100%; font-size: .85rem; text-align: left; }
+.paseo-setup th, .paseo-setup td { padding: 12px 8px; border-bottom: 1px solid var(--paseo-line); min-width: 90px; overflow-wrap: anywhere; }
+.paseo-setup footer { margin-top: 28px; }
+.paseo-setup .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.paseo-setup .skip-link { position: absolute; left: 24px; top: -80px; padding: 12px; background: #fff; z-index: 2; }
+.paseo-setup .skip-link:focus { top: 8px; }
+.paseo-setup [hidden], .paseo-native-entry [hidden] { display: none !important; }
+.paseo-native-entry { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin: 18px 0; padding: 20px; border: 1px solid var(--border, #dddde3); border-radius: 12px; color: var(--text-primary, inherit); background: var(--bg-surface, transparent); font: inherit; }
+.paseo-native-entry h2 { font-size: 1rem; margin: 0 0 6px; }
+.paseo-native-entry p { margin: 0; max-width: 60ch; font-size: .9rem; }
+.paseo-native-entry button, .paseo-native-entry a { display: inline-flex; align-items: center; min-height: 44px; padding: 10px 16px; border: 1px solid var(--border, #bbbbc5); border-radius: 8px; color: inherit; background: transparent; font: inherit; text-decoration: none; cursor: pointer; }
+@media (max-width: 600px) {
+  .paseo-setup main { padding: 24px 16px; }
+  .paseo-setup .card { padding: 18px; }
+  .paseo-setup .fields, .paseo-setup .facts { grid-template-columns: 1fr; }
+  .paseo-setup .actions > * { flex: 1 1 auto; }
+  .paseo-setup .provider-list li { display: block; }
+  .paseo-setup .provider-list span { display: block; text-align: left; }
+}

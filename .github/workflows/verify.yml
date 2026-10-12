@@ -1,0 +1,26 @@
+name: Verify plugin
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install playwright==1.55.0
+      - run: python -m playwright install --with-deps chromium
+      - run: npm ci --omit=dev
+      - run: npm test
+      - run: npm run check
+      - run: npm audit --omit=dev
+      - run: npm audit --omit=dev --prefix vendor/pi-paseo/runtime

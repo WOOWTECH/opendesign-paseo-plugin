@@ -1,0 +1,45 @@
+{
+  "$schema": "https://open-design.ai/schemas/plugin.v1.json",
+  "specVersion": "1.0.0",
+  "name": "woowtech-paseo",
+  "title": "Paseo connection setup",
+  "title_i18n": {
+    "en": "Paseo connection setup",
+    "zh-TW": "Paseo 安裝與連線設定"
+  },
+  "version": "0.1.0",
+  "description": "Guide Paseo setup through the protected OpenDesign integration page.",
+  "description_i18n": {
+    "en": "Guide Paseo setup through the protected OpenDesign integration page.",
+    "zh-TW": "透過受保護的設定頁啟動 Paseo、登入帳號、配對官方 App，並測試模型對話。"
+  },
+  "author": {
+    "name": "WOOWTECH",
+    "url": "https://github.com/WOOWTECH"
+  },
+  "homepage": "https://github.com/WOOWTECH/opendesign-paseo-plugin",
+  "tags": [
+    "paseo",
+    "integration",
+    "setup"
+  ],
+  "compat": {
+    "agentSkills": [
+      {
+        "path": "./SKILL.md"
+      }
+    ]
+  },
+  "od": {
+    "kind": "skill",
+    "useCase": {
+      "query": {
+        "en": "Help me open the protected Paseo setup page and check the current connection status.",
+        "zh-TW": "請引導我開啟受保護的 Paseo 設定頁，確認目前連線狀態。"
+      }
+    },
+    "capabilities": [
+      "prompt:inject"
+    ]
+  }
+}
