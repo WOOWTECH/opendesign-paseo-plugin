@@ -44,7 +44,7 @@ async def verify(args, proof):
             proof['authentication'][route] = response.status
             require(response.status == 401, 'AUTH_BOUNDARY_FAILED')
         await anon.close()
-        context = await browser.new_context(http_credentials=auth, viewport={'width': 1440, 'height': 1000})
+        context = await browser.new_context(http_credentials={**auth, 'origin': base}, viewport={'width': 1440, 'height': 1000})
         page = await context.new_page()
         await page.goto(base + '/plugins', wait_until='domcontentloaded')
         await page.locator('section.plugin-marketplace .plugin-marketplace__switch button').first.click()

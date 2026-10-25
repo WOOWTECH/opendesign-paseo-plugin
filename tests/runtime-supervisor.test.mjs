@@ -40,6 +40,16 @@ test('foreign PID records fail closed and are never signalled', async t => {
   assert.doesNotThrow(() => process.kill(process.pid, 0));
 });
 
+test('a recycled PID with a different start identity is left alone during recovery',async t=>{
+  const context=fixture(t);
+  writeRecord(path.join(context.stateDir,'supervisor.json'),{pid:process.pid,identity:'0',packageRoot:context.packageRoot});
+  assert.deepEqual(await stopOwnedSupervisor(context),{running:false});
+  await startOwnedSupervisor(context);
+  const current=JSON.parse(fs.readFileSync(path.join(context.stateDir,'supervisor.json')));
+  assert.notEqual(current.pid,process.pid);assert.equal(supervisorOwned(context,current),true);
+  assert.doesNotThrow(()=>process.kill(process.pid,0));
+});
+
 test('supervision retries a transient crash, recovers, and exits immediately on a persisted pause', async () => {
   let tries = 0, cancelled = false;
   await runSupervision({ reconcile: async () => { tries++; if (tries === 1) throw { code: 'DAEMON_UNREACHABLE' }; return { desiredEnabled: tries < 3 }; }, cancelPending: () => { cancelled = true; } }, { intervalMs: 1, maxBackoffMs: 2 });

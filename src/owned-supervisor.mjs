@@ -22,7 +22,8 @@ export function supervisorOwned(context, record) {
 export async function stopOwnedSupervisor(context, { timeoutMs = 6000 } = {}) {
   const file = path.join(context.stateDir, 'supervisor.json'), record = readRecord(file);
   if (!supervisorOwned(context, record)) {
-    if (record.pid && processIdentity(record.pid)) throw new RuntimeError('SUPERVISOR_NOT_OWNED');
+    const current=processIdentity(record.pid);
+    if (current&&(!record.identity||current===record.identity)) throw new RuntimeError('SUPERVISOR_NOT_OWNED');
     return { running: false };
   }
   process.kill(record.pid, 'SIGTERM');
@@ -46,8 +47,16 @@ export async function startOwnedSupervisor(context) {
   if (supervisorOwned(context, previous)) {
     if (previous.packageRoot === context.packageRoot) return { running: true };
     await stopOwnedSupervisor(context);
-  } else if (previous.pid && processIdentity(previous.pid)) throw new RuntimeError('SUPERVISOR_NOT_OWNED');
-  assertSafePath(path.join(context.packageRoot, 'bin/supervise.mjs'));
+  } else {
+    const current=processIdentity(previous.pid);
+    // A different start identity proves the old process exited. A recycled PID
+    // is never signalled and must not block recovery after a container restart.
+    if(current&&(!previous.identity||current===previous.identity))throw new RuntimeError('SUPERVISOR_NOT_OWNED');
+  }
+  const entry=path.join(context.packageRoot, 'bin/supervise.mjs');
+  assertSafePath(entry);
+  try{if(!fs.statSync(entry).isFile())throw new Error();}
+  catch{throw new RuntimeError('SUPERVISOR_UNAVAILABLE');}
   const child = spawn(process.execPath, [path.join(context.packageRoot, 'bin/supervise.mjs')], { cwd: context.home, env: providerEnvironment(context), detached: true, shell: false, stdio: 'ignore' });
   await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', () => reject(new RuntimeError('SUPERVISOR_UNAVAILABLE'))); });
   const identity = processIdentity(child.pid);
