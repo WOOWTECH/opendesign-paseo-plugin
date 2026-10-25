@@ -107,7 +107,7 @@ Chart `0.5.8` provides the optional supervision and protected routes; `paseo.ena
 
 The tested service retains its chart/image during ordinary configuration and workload restarts. **The platform's full Redeploy operation currently follows the product template and replaces a service-specific image/chart.** The default product template has not been promoted to this feature release. Integrating the tested image/chart into that product release policy remains a prerequisite for general commercial rollout.
 
-The service-specific deployment policy implementation is prepared in platform PR1996, commit `f24d1dff3c2b6b108268c616ef74a97b7cd574aa`: administrators can pin an exact chart and immutable image while other services follow their product template. It has passed 63 focused real Odoo tests, 39 resolver tests, eight JSON parser checks and eight browser GUI checks. It has not yet been released to the production platform; the repository requires human merge and build approval. These tests do not substitute for a production full Redeploy acceptance run.
+The service-specific deployment policy implementation lets administrators pin an exact chart and immutable image while other services follow their product template. It passed focused Odoo, resolver, parser and browser checks, a full 7,477-test Odoo suite and [two isolated native Redeploy runs](native-redeploy-verification-20261025.md). The platform maintainer must still release this policy through its normal review and build approval process. These tests do not substitute for a production full Redeploy acceptance run.
 
 See [live verification record](native-launcher-verification-20261025.md) for the tested scope and remaining release work.
 

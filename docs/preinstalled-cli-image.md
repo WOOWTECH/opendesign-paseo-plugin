@@ -12,18 +12,16 @@
 - Pi Coding Agent `1.1.0`
 - PaaS 代理初始化還需要 `python3`；映像另備有 `bash`、`curl`、`gcompat`、`libgcc`、`libstdc++`、`ripgrep` 和 `tini`
 
-## 2026-10-12 service254 實測
+## 2026-10-12 冷安裝實測
 
-測試服務：`OpenDesign CLI 冷安裝測試 20261012`，namespace `paas-ws-7948b087`，URL `https://paas-cs-7948b087-5ca65ce8.woowtech.io`。以 WoowTech PaaS 原生重配置流程部署映像：
-
-`jcr-prod.woowtech.io/woow-paas-docker-local/open-design:20261012-cli-bundle-2@sha256:2fc31abc0328cd6e6f3e7f19fd4fbc788edb4e3baf1cdba7838fe6956aff82d2`
+在經授權的隔離服務，以原生 PaaS 重配置流程部署不可變候選映像。服務位址、儲存卷與實際映像識別保留於私有驗收紀錄。
 
 已驗證：
 
 - Kaniko 從固定 OpenDesign Alpine 基底安裝三個固定版本；建置階段以 UID 1001 執行 `claude --version`、`codex --version`、`pi --version` 均成功。
 - 真實 PaaS 啟動完成，所有初始化容器與 OpenDesign 主容器 Ready。容器為 UID/GID 1001；`python3 3.14.8` 及三個 CLI 都可由 PATH 找到並執行。
 - OpenDesign GUI 一般登入後進入 **Local AI → Rescan**，列出 Claude Code `2.1.296`、Codex `0.162.1`、Pi `1.1.0`；三個項目各自可選取。320、390、768、1280px 寬度均無水平溢位或前端例外。
-- 部署移除 `NODE_OPTIONS` 中 Paseo preload，並刪除 service254 HOME 與 OpenDesign 資料卷內專屬的 Paseo host adapter、release/runtime state 及交易目錄。Claude、Codex、Pi 使用者設定和授權資料未刪除或寫入映像。
+- 部署移除 `NODE_OPTIONS` 中 Paseo preload，並刪除 測試服務 HOME 與 OpenDesign 資料卷內專屬的 Paseo host adapter、release/runtime state 及交易目錄。Claude、Codex、Pi 使用者設定和授權資料未刪除或寫入映像。
 - GUI 驗收未按「Test」或「Continue」，沒有從驗收流程送出測試對話。部署後啟動沒有下載 CLI 的背景步驟。
 
 ## 發現並修正

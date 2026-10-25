@@ -1,58 +1,38 @@
-# PaaS 單一服務版本固定：待發布後執行
+# PaaS 單一服務版本固定：發布後操作單
 
-這是待平台功能發布後的操作單，不代表目前正式 PaaS 已支援固定版本。
-功能來源：平台 PR1996，已驗證 commit `f24d1dff3c2b6b108268c616ef74a97b7cd574aa`。
-平台倉庫要求真人審閱／合併與 CI 建置批准；不可用暫時改寫線上程式取代發布。
+這是通用操作單。部署政策功能必須先在平台正式發布，才可執行；公開插件候選版本身不代表任一平台已支援固定版本。實際服務識別碼、映像與審批紀錄由部署者保管。
 
 ## 發布前條件
 
-1. PR 的必要 CI 全綠，真人審閱及合併。
-2. 依平台既有 release train 建立正式版本、完成建置批准與部署。
-3. 在 staging 確認管理員服務表單出現部署政策、chart 版本與映像設定。
-4. 確認一般租戶仍能正常開通服務，且看不到或寫入上述管理員欄位。
+1. 平台必要 CI 與 Odoo 測試通過，依既有審閱、建置、核可與發布流程完成部署。
+2. 在 staging 確認管理員原生表單出現部署政策、chart 版本與映像設定。
+3. 確認一般租戶仍能開通服務，且看不到或寫入管理員欄位。
+4. 重新讀取目標服務現有映像、插件組合、chart、revision 與備份。保留已授權的更新版本，不使用過期歷史目標覆蓋它。
 
 ## 管理員設定
 
-在指定服務的原生管理表單選擇固定版本，chart 輸入 `0.5.8`，映像設定使用下列其中一組。
-先檢查服務當前的主機種類及已驗證映像；不要將含 Omnigent 的主機換成一般主機。
-
-一般 OpenDesign／Paseo：
+只在指定服務的原生表單選擇固定版本，輸入已驗證的精確 chart 版本與不可變映像參照。例如：
 
 ```json
 {
   "image": {
-    "repository": "jcr-prod.woowtech.io/woow-paas-docker-local/open-design",
-    "tag": "paseo-mobile-0.2.0-20261025-8b9708a2b535@sha256:8dedab28b9471bc146383d3ca6f1811718b8aeb0190f1a0ab601b5f80b2cfa1c"
+    "repository": "registry.example/team/open-design",
+    "tag": "your-tested-tag@sha256:<64-character-lowercase-digest>"
   }
 }
 ```
 
-含 Omnigent 的 OpenDesign／Paseo：
+此範例不能直接部署。請以自己的 registry、已驗證 tag 及真實 SHA-256 取代，並確認映像保留該服務既有的 Omnigent 等功能。
 
-```json
-{
-  "image": {
-    "repository": "jcr-prod.woowtech.io/woow-paas-docker-local/open-design",
-    "tag": "20261025.104554-omnigent-b3270069b935-candidate@sha256:07a7767f12962fe6c1defc80a0de36040082affae226524218d0cf83d7599e71"
-  }
-}
-```
+保持 `paseo.enabled`、正確 HTTPS origin、儲存卷與帳號設定。不要修改共用商品範本來影響其他租戶。返回跟隨範本時，表單會清空固定值；解除固定前先確認商品範本支援現有功能。
 
-上面的 Omnigent 0.1.5 映像來自後續原生 Omnigent 發布，繼承本輪已驗證的 Paseo 映像與手機修正。
-若服務已有更新的授權發布版本，應先驗證該版本，不可直接覆蓋成上述歷史版本。
+## 完整 Redeploy 驗收
 
-保持原服務的 `paseo.enabled`、正確 HTTPS origin、儲存卷與帳號設定。設定只限指定服務，
-不修改共用商品範本或其他租戶。返回跟隨範本時，表單會清空固定值；下一次完整 Redeploy
-就會使用商品範本，因此解除固定前必須確認該範本也支援目前功能。
+- 事前記錄 image digest、chart、revision、初始化對話、專案檔案雜湊及持久卷身分。
+- 儲存設定後，實際按平台「完整重新部署」。
+- 確認平台記錄、Helm 實際版本與所有容器就緒；確認映像／chart 未回到舊範本，原設定、資料與對話保留。
+- 跑 `verify-responsive-launchers.py`；具備供應商授權時再跑 `verify-native-launcher.py --chat`。
+- 再執行一次完整 Redeploy，確認結果一致；其他服務仍沿用原政策。
+- 失敗時保留證據，透過原生流程恢復先前已驗證映像與 chart，不刪除 PVC 或更換帳密。
 
-## 真正完整 Redeploy 驗收
-
-- 事前記錄目前 image digest、chart、revision、初始化對話 ID、專案檔案雜湊及持久卷身分。
-- 儲存上述設定後，實際按平台「完整重新部署」。
-- 同時確認 PaaS 記錄、Helm 實際版本與所有容器的就緒狀態；單看 PaaS Running 不足以判定成功。
-- 確認映像 digest／chart 未回到商品範本，Paseo 設定仍在、初始化對話沿用、原檔案雜湊未變。
-- 跑 `verify-responsive-launchers.py`；具備各供應商授權的服務再跑 `verify-native-launcher.py --chat`。
-- 再執行一次完整 Redeploy，確認結果一致；同商品其他服務仍沿用原政策。
-- 任一步失敗，保留證據並透過原生部署流程恢復先前已驗證映像及 chart，不刪除 PVC 或更換帳密。
-
-尚未登入 Claude／Codex／Pi 的服務只能驗證介面、配對與登入引導，不能列為模型對話通過。
+[隔離驗收紀錄](native-redeploy-verification-20261025.md)不能取代目標平台的上述驗收。尚未登入供應商的主機只能驗證入口、配對與登入引導，不能列為模型對話通過。
