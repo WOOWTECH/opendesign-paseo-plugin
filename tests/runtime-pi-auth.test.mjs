@@ -10,9 +10,9 @@ import { createAuthFlow } from '../src/auth-flow.mjs';
 import { runPiOAuth, loadPiOAuth } from '../src/pi-oauth.mjs';
 
 function fixture(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'od-pi-oauth-')), home = path.join(root, 'home'), dataDir = path.join(root, 'data'); fs.mkdirSync(home); fs.mkdirSync(dataDir);
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'od-pi-oauth-')), home = path.join(root, 'home'), dataDir = path.join(root, 'data'); fs.mkdirSync(home); fs.mkdirSync(dataDir); fs.mkdirSync(path.join(root, 'bin'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  return runtimeContext({ home, dataDir, packageRoot: sourceRoot, env: { PATH: process.env.PATH, OD_API_TOKEN: 'host-token-fixture', PI_OAUTH_CALLBACK_HOST: '0.0.0.0' } });
+  return runtimeContext({ home, dataDir, packageRoot: sourceRoot, env: { PATH: path.join(root, 'bin'), OD_API_TOKEN: 'host-token-fixture', PI_OAUTH_CALLBACK_HOST: '0.0.0.0' } });
 }
 
 test('official SDK OAuth callbacks drive protected URL/manual input and official storage merges only the requested provider', async t => {
@@ -83,4 +83,51 @@ test('SDK loader fails closed when the managed pinned package/repair is absent; 
   const context = fixture(t);
   await assert.rejects(loadPiOAuth(context), { code: 'PROVIDER_UNAVAILABLE' });
   assert.equal(safeError({ code: 'PROVIDER_PRIVATE_ACCOUNT_TOKEN_FIXTURE' }).code, 'RUNTIME_FAILED');
+});
+
+
+function preinstalled(t, { codingVersion = '1.1.0', aiVersion = '1.4.0', entry = 'dist/cli.js' } = {}) {
+  const context = fixture(t);
+  const codingRoot = path.join(context.home, 'global/node_modules/@earendil-works/pi-coding-agent');
+  const aiRoot = path.join(codingRoot, 'node_modules/@earendil-works/pi-ai');
+  fs.mkdirSync(path.join(codingRoot, 'dist/core'), { recursive: true });
+  fs.mkdirSync(path.join(aiRoot, 'dist/providers'), { recursive: true });
+  fs.writeFileSync(path.join(codingRoot, 'package.json'), JSON.stringify({ name: '@earendil-works/pi-coding-agent', type: 'module', version: codingVersion, bin: { pi: entry } }));
+  fs.writeFileSync(path.join(codingRoot, 'dist/cli.js'), '#!/usr/bin/env node\n', { mode: 0o755 });
+  fs.writeFileSync(path.join(codingRoot, 'dist/core/auth-storage.js'), 'export class AuthStorage { static create() { throw new Error("loader must not open credentials"); } }');
+  fs.writeFileSync(path.join(aiRoot, 'package.json'), JSON.stringify({ name: '@earendil-works/pi-ai', type: 'module', version: aiVersion, exports: { './providers/*': { import: './dist/providers/*.js' } } }));
+  fs.writeFileSync(path.join(aiRoot, 'dist/providers/openai-codex.js'), 'export const openaiCodexProvider = () => ({ auth: { oauth: { login() { throw new Error("loader must not start OAuth"); } } } });');
+  fs.symlinkSync(path.join(codingRoot, 'dist/cli.js'), path.join(context.env.PATH, 'pi'));
+  return { context, codingRoot, aiRoot };
+}
+
+test('preinstalled Pi 1.1.0 / AI 1.4.0 resolves its import-only CLI SDK without installing or opening credentials', async t => {
+  const { context } = preinstalled(t);
+  const result = await loadPiOAuth(context);
+  assert.equal(result.providerId, 'openai-codex');
+  assert.equal(typeof result.AuthStorage.create, 'function');
+  assert.equal(typeof result.oauth.login, 'function');
+  assert.equal(fs.existsSync(context.toolsDir), false);
+  assert.equal(fs.existsSync(path.join(context.env.PI_CODING_AGENT_DIR, 'auth.json')), false);
+});
+
+test('preinstalled Pi rejects unreviewed coding and AI SDK versions', async t => {
+  for (const versions of [{ codingVersion: '1.2.0' }, { aiVersion: '1.2.0' }]) {
+    const { context } = preinstalled(t, versions);
+    await assert.rejects(loadPiOAuth(context), { code: 'PROVIDER_VERSION_MISMATCH' });
+  }
+});
+
+test('preinstalled Pi requires the discovered executable to match the package bin entry', async t => {
+  const { context } = preinstalled(t, { entry: 'dist/foreign.js' });
+  await assert.rejects(loadPiOAuth(context), { code: 'PROVIDER_UNAVAILABLE' });
+});
+
+test('corrupt managed SDK cannot silently fall back to a valid preinstalled CLI', async t => {
+  const { context } = preinstalled(t);
+  const { providerRelease } = await import('../src/provider-install.mjs');
+  const managed = path.join(providerRelease(context, 'pi'), 'node_modules/@earendil-works/pi-coding-agent');
+  fs.mkdirSync(managed, { recursive: true });
+  fs.writeFileSync(path.join(managed, 'package.json'), JSON.stringify({ version: '0.0.0' }));
+  await assert.rejects(loadPiOAuth(context), { code: 'PROVIDER_REPAIR_FAILED' });
 });

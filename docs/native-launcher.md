@@ -138,3 +138,11 @@ See [live verification record](native-launcher-verification-20261025.md) for the
 
 主機的 OpenDesign 登入與模型供應商授權是兩個步驟。請使用這個工作區自己的供應商帳號；
 設定頁不收集供應商密碼。尚未登入的新工作區可以先驗證外掛入口與 Paseo 配對，不能視為模型對話已完成。
+
+
+### 預裝 Pi 的登入 SDK
+
+相容映像預裝的 Pi CLI 為 1.1.0、其 Pi AI SDK 為 1.4.0。登入服務會從實際 Pi 執行檔
+找到對應套件，核對套件版本及 ESM provider export，再載入官方 OAuth 與 AuthStorage。
+不會為了登入重新安裝或降級主機 CLI。既有受管理 Pi 1.0.0 仍需通過 SDK 修補檢查；
+套件損壞或版本不在已驗證組合內時會拒絕載入。
