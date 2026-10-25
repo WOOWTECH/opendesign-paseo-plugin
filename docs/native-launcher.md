@@ -55,6 +55,7 @@ The output receipt includes the selected profile, actual immutable host image, s
 | `open-design-w2.4-mobile` | Same host with native mobile launcher actions fixed |
 | `omnigent-0.1.4` | Original combined Omnigent host |
 | `omnigent-0.1.4-mobile` | Same Omnigent host with native mobile launcher actions fixed |
+| `omnigent-0.1.5` | Deployed Omnigent 0.1.5 host, including the mobile launcher fixes |
 
 The Omnigent profiles preserve that host's server, SDK and bundled launchers. Its two existing MCP source modules are identical to the reviewed base; the third MCP module is additive. Mobile profiles add only a source-built static web export and its provenance manifest. Their base images have passed real containerd extraction and all 764 web-file hash comparisons. These profiles do not claim compatibility with other host releases.
 
@@ -120,3 +121,20 @@ See [live verification record](native-launcher-verification-20261025.md) for the
 及 `browser-auth.json`（`username`、`password`）；未安裝 Omnigent 時省略 `omnigent`。
 帳密檔請設為 `0600`，不要放進 repo。此腳本不執行模型登入或對話；結果寫入同目錄的
 `responsive-launcher-proof.json`，不包含帳密或配對連結。模型對話另用 `verify-native-launcher.py --chat` 驗收。
+
+
+## GUI 帳號連結
+
+1. 在外掛頁開啟 **Paseo 設定**，按 **重新整理**。
+2. 選擇 Claude Code、Codex 或 Pi，按 **登入與帳號設定**，再開啟官方登入頁。
+3. Claude Code 依官方授權頁操作；Codex 在官方頁輸入此設定頁提供的裝置代碼。
+   Pi 的網頁登入使用 OpenAI Codex OAuth；只有畫面要求時，將官方回呼網址或代碼貼回設定頁。
+   Pi 的這個登入方式不會同時授權 OpenRouter 等其他供應商。
+4. 返回設定分頁後，畫面會重新向已驗證的後端查詢同一次登入進度。
+   離開分頁時會清除畫面上的連結、裝置代碼與輸入內容；已輸入但未提交的回呼需要重新貼上。
+   已到期、取消或按「隱藏登入資訊」的流程不會自動重新開始。
+5. 確認官方登入完成後，按 **讀取可用模型**、選擇模型與模式，再按 **測試選定模型**。
+   第一則與後續回覆均成功，才能確認該帳號與所選模型可正常對話。
+
+主機的 OpenDesign 登入與模型供應商授權是兩個步驟。請使用這個工作區自己的供應商帳號；
+設定頁不收集供應商密碼。尚未登入的新工作區可以先驗證外掛入口與 Paseo 配對，不能視為模型對話已完成。

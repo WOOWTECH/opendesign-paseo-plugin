@@ -44,3 +44,11 @@ test('mobile w2.4 host preserves the original host family', () => {
   assert.equal(profile.hostSource.commit, '2fef8017bba43aac3b94ffadbb8da15678016e83');
   assert.deepEqual(profile.files, loadNativeProfile().files);
 });
+
+
+test('Omnigent 0.1.5 profile retains the deployed host and reviewed MCP replacements', () => {
+  const profile = loadNativeProfile('omnigent-0.1.5');
+  assert.match(profile.baseImage, /@sha256:07a7767f12962fe6c1defc80a0de36040082affae226524218d0cf83d7599e71$/);
+  assert.equal(profile.hostSource.commit, 'b3270069b93548bbfced8cb17fa90039fd88422a');
+  assert.deepEqual(profile.files, loadNativeProfile().files);
+});

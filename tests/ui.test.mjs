@@ -558,3 +558,65 @@ test('missing bundled integration blocks activation without attempting a retired
  assert.equal(h.doc.byId.has('import-plugin'),false);
  assert.equal(h.calls.some(c=>c.url==='/api/plugins/install'),false);
 });
+
+
+test('returning from official authorization restores Pi input from fresh status without retaining secrets', async () => {
+  const f = fixture(); await f.ready();
+  f.$('provider').value = 'pi'; f.$('provider').emit('change');
+  const pending = { provider: 'pi', phase: 'awaiting_authorization', requiresCode: true,
+    authorizationUrl: 'https://auth.openai.com/oauth/authorize?state=TRANSIENT_ONLY' };
+  await f.click('login', pending);
+  f.$('login-code-input').value = 'DO_NOT_RETAIN';
+  f.doc.hidden = true; f.doc.emit('visibilitychange');
+  assert.equal(f.$('login-link').getAttribute('href'), null);
+  assert.equal(f.$('login-code-input').value, '');
+  const count = f.calls.length;
+  await f.clock.advance(30000);
+  assert.equal(f.calls.length, count);
+  const response = deferred(); f.responses.push(() => response.promise);
+  f.doc.hidden = false; f.doc.emit('visibilitychange');
+  await f.clock.advance(0);
+  assert.deepEqual(f.calls.at(-1).json, { action: 'login', provider: 'pi', step: 'status' });
+  assert.equal(f.$('login-input').hidden, true);
+  response.resolve(f.response(pending)); await flush();
+  assert.equal(f.$('login-input').hidden, false);
+  assert.equal(f.$('login-code-input').value, '');
+  assert.equal(f.$('login-submit').disabled, false);
+  f.$('login-code-input').value = 'NEW_CALLBACK';
+  await f.click('login-submit', { provider: 'pi', phase: 'authorization_completed' });
+  assert.match(f.$('login-message').textContent, /登入流程已完成/);
+  assert.equal(f.calls.filter(call => call.json?.step === 'start').length, 1);
+});
+
+test('authorization return after expiry or explicit close does not restart or restore the flow', async () => {
+  for (const expire of [true, false]) {
+    const f = fixture(); await f.ready();
+    const pending = { provider: 'claude', phase: 'awaiting_authorization',
+      authorizationUrl: 'https://claude.ai/oauth/authorize?state=TRANSIENT_ONLY' };
+    await f.click('login', pending);
+    if (!expire) await f.click('login-close');
+    f.doc.hidden = true; f.doc.emit('visibilitychange');
+    await f.clock.advance(expire ? 125000 : 1000);
+    const count = f.calls.length;
+    f.doc.hidden = false; f.doc.emit('visibilitychange');
+    await f.clock.advance(0);
+    assert.equal(f.calls.length, count);
+    assert.equal(f.$('login-link').getAttribute('href'), null);
+    assert.equal(f.$('login-panel').hidden, true);
+  }
+});
+
+test('login start completing across a tab switch restores only by a fresh protected status', async () => {
+  const f = fixture(); await f.ready();
+  const slow = deferred(); f.responses.push(() => slow.promise);
+  await f.click('login');
+  f.doc.hidden = true; f.doc.emit('visibilitychange');
+  f.doc.hidden = false; f.doc.emit('visibilitychange');
+  slow.resolve(f.response({ provider: 'claude', phase: 'awaiting_authorization',
+    authorizationUrl: 'https://claude.ai/oauth/authorize?state=STALE' })); await flush();
+  assert.equal(f.$('login-link').getAttribute('href'), null);
+  f.responses.push(f.response({ provider: 'claude', phase: 'authorization_completed' }));
+  await f.clock.advance(5000);
+  assert.deepEqual(f.calls.at(-1).json, { action: 'login', provider: 'claude', step: 'status' });
+  assert.match(f.$('login-message').textContent, /登入流程已完成/);
+});

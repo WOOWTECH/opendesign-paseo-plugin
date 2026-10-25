@@ -100,7 +100,7 @@
       await refresh();
     }, delayMs);
   }
-  function scheduleAuthPoll() {
+  function scheduleAuthPoll(delayMs = 5000) {
     clearTimeout(authTimer); authTimer = null;
     if (!loginProvider || disposed || busy || authBlocked || document.hidden || status?.operation?.pending) return;
     if (authAttempts >= 24 || Date.now() >= loginExpiresAt) {
@@ -113,7 +113,7 @@
       if (!loginProvider || busy || disposed || document.hidden) return;
       authAttempts += 1;
       void mutate("login", { provider: loginProvider, step: "status" });
-    }, 5000);
+    }, delayMs);
   }
   function errorMessage(error) {
     if (error?.code === "AUTH_REQUIRED") return "設定需要 OpenDesign 登入。請回到 OpenDesign 重新登入，再重新整理。";
@@ -307,7 +307,7 @@
     clearTimeout(authTimer); authTimer = null;
     if (action !== "login" || extra.step !== "status") clearTransient();
     if (action !== "login") { loginProvider = null; loginExpiresAt = 0; }
-    if (action === "login" && extra.step === "start") { clearCatalog(); authAttempts = 0; loginExpiresAt = Date.now() + 120000; }
+    if (action === "login" && extra.step === "start") { clearCatalog(); loginProvider = extra.provider; authAttempts = 0; loginExpiresAt = Date.now() + 120000; }
     generation += 1;
     if (readController) { readController.abort(); readController = null; }
     const visibleAtStart = visibilityGeneration, transientAtStart = transientGeneration, operationStartedAt = Date.now();
@@ -462,11 +462,13 @@
   $("pair-close").addEventListener("click", clearTransient);
   $("login-close").addEventListener("click", () => { clearTransient(); loginProvider = null; controls(); });
   document.addEventListener("visibilitychange", () => {
-    visibilityGeneration += 1; clearTransient(); loginProvider = null;
+    // Clear secrets while away; retain only the provider and original deadline.
+    // On return, recover the active flow from a fresh protected status response.
+    visibilityGeneration += 1; clearTransient();
     if (document.hidden) {
       clearPoll(); generation += 1;
       if (readController) { readController.abort(); readController = null; }
-    } else schedulePoll();
+    } else { schedulePoll(); scheduleAuthPoll(0); }
     controls();
   });
   window.addEventListener("pagehide", () => {

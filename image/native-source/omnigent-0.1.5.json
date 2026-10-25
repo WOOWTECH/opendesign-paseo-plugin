@@ -1,0 +1,8 @@
+{
+  "baseImage": "jcr-prod.woowtech.io/woow-paas-docker-local/open-design:20261025.104554-omnigent-b3270069b935-candidate@sha256:07a7767f12962fe6c1defc80a0de36040082affae226524218d0cf83d7599e71",
+  "hostSource": {
+    "repository": "https://github.com/WOOWTECH/opendesign-omnigent",
+    "commit": "b3270069b93548bbfced8cb17fa90039fd88422a",
+    "compatibility": "Omnigent 0.1.5 retains the reviewed native Paseo MCP modules and mobile launcher fixes. Its settings and adapter are preserved by the Paseo layer."
+  }
+}
