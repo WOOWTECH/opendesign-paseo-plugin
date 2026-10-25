@@ -12,9 +12,10 @@ import json
 import os
 from pathlib import Path
 import time
+import traceback
 from urllib.parse import urlsplit
 
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, expect
 
 
 class CheckFailed(Exception):
@@ -36,8 +37,10 @@ async def verify(args, proof):
     require(parsed.scheme == 'https' and not parsed.username and not parsed.password and not parsed.query and not parsed.fragment and parsed.path == '', 'INVALID_TARGET')
     proof['origin'] = base
     async with async_playwright() as pw:
+        proof['stage'] = 'browser'
         browser = await pw.chromium.launch(headless=True, args=['--no-sandbox'])
         anon = await browser.new_context()
+        proof['stage'] = 'authentication'
         proof['authentication'] = {}
         for route in ['/paseo/setup/', '/paseo/assets/setup.js', '/api/paseo-bridge']:
             response = await anon.request.get(base + route)
@@ -46,6 +49,7 @@ async def verify(args, proof):
         await anon.close()
         context = await browser.new_context(http_credentials={**auth, 'origin': base}, viewport={'width': 1440, 'height': 1000})
         page = await context.new_page()
+        proof['stage'] = 'native-cards'
         await page.goto(base + '/plugins', wait_until='domcontentloaded')
         await page.locator('section.plugin-marketplace .plugin-marketplace__switch button').first.click()
         await page.get_by_test_id('plugins-tab-installed').click()
@@ -60,12 +64,14 @@ async def verify(args, proof):
         async with page.expect_popup() as pending:
             await page.get_by_test_id('plugins-card-woow-paseo').locator('a[href="/paseo/setup/"]').click()
         setup = await pending.value
+        proof['stage'] = 'setup-page'
         await setup.wait_for_load_state('domcontentloaded')
         require(setup.url == base + '/paseo/setup/', 'SETUP_ORIGIN_FAILED')
         await setup.locator('h1').filter(has_text='Paseo 安裝與連線設定').wait_for()
-        await setup.wait_for_function("!document.getElementById('refresh').disabled")
+        await expect(setup.locator('#refresh')).to_be_enabled()
         await setup.screenshot(path=str(private / 'native-setup.png'), full_page=True)
         deadline = time.monotonic() + 360
+        proof['stage'] = 'runtime-ready'
         while True:
             current = await (await context.request.get(base + '/api/paseo-bridge')).json()
             if current.get('daemon', {}).get('reachable'):
@@ -75,18 +81,26 @@ async def verify(args, proof):
         proof['onboarding'] = {key: current.get('onboarding', {}).get(key) for key in ['projectId', 'conversationId', 'initialized', 'phase']}
         require(proof['onboarding']['initialized'] is True, 'ONBOARDING_NOT_READY')
         await setup.locator('#refresh').click()
-        await setup.wait_for_function("!document.getElementById('models').disabled")
+        proof['stage'] = 'model-controls'
+        await expect(setup.locator('#models')).to_be_enabled()
         proof['providers'] = {}
         for provider in ['claude', 'codex', 'pi']:
+            proof['stage'] = provider + '-models'
             await setup.locator('#provider').select_option(provider)
             await setup.locator('#models').click()
-            await setup.wait_for_function("!document.getElementById('model').disabled", timeout=90000)
+            await expect(setup.locator('#model')).to_be_enabled(timeout=90000)
+            preferred = target.get('models', {}).get(provider)
+            if preferred:
+                available = await setup.locator('#model option').evaluate_all('(options) => options.map(option => option.value)')
+                require(preferred in available, 'PREFERRED_MODEL_UNAVAILABLE')
+                await setup.locator('#model').select_option(preferred)
             model = await setup.locator('#model').input_value()
             mode = await setup.locator('#mode').input_value()
             row = {'modelCount': await setup.locator('#model option').count(), 'model': model, 'mode': mode}
             proof['providers'][provider] = row
             require(row['modelCount'] > 0 and model, 'MODEL_CATALOG_EMPTY')
             if args.chat:
+                proof['stage'] = provider + '-chat'
                 before = (await (await context.request.get(base + '/api/paseo-bridge')).json()).get('lastVerification', {}).get('checkedAt')
                 await setup.locator('#acceptance').click()
                 deadline = time.monotonic() + 660
@@ -104,8 +118,9 @@ async def verify(args, proof):
                     require(time.monotonic() < deadline, 'CHAT_RESULT_TIMEOUT')
                     await asyncio.sleep(2)
                 await setup.locator('#refresh').click()
-                await setup.wait_for_function("!document.getElementById('provider').disabled", timeout=30000)
+                await expect(setup.locator('#provider')).to_be_enabled(timeout=30000)
         proof['passed'] = all(row.get('chat', {}).get('passed', True) for row in proof['providers'].values())
+        proof['stage'] = 'completed'
         await setup.screenshot(path=str(private / 'native-setup-models.png'), full_page=True)
         await browser.close()
 
@@ -120,6 +135,11 @@ def main():
         asyncio.run(verify(args, proof))
     except Exception as error:
         proof['code'] = str(error) if isinstance(error, CheckFailed) else 'BROWSER_CHECK_FAILED'
+        proof['category'] = type(error).__name__
+        # Record source frames only; exception messages may include private URLs.
+        proof['frames'] = [{'function': frame.name, 'line': frame.lineno}
+                           for frame in traceback.extract_tb(error.__traceback__)
+                           if frame.filename == __file__]
     output = Path(args.private_dir) / 'native-launcher-proof.json'
     with os.fdopen(os.open(output, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), 'w') as stream:
         json.dump(proof, stream, ensure_ascii=False, indent=2)

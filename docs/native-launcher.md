@@ -53,7 +53,7 @@ The source is downloadable, but building against a private base registry require
 
 Unit and HTTP tests cover the actual native launch URL, private headers, origin/body validation, lifecycle persistence, MCP compare-and-swap, and recovery of an existing owned onboarding conversation. Dependency audits cover the plugin and managed Paseo lockfiles separately.
 
-For authorized real browser checks, create a private directory (mode `0700`) containing `target.json` with `{ "base": "https://your-host.example" }` and `browser-auth.json` with the existing proxy credentials. Keep both files out of Git.
+For authorized real browser checks, create a private directory (mode `0700`) containing `target.json` with `{ "base": "https://your-host.example" }` and `browser-auth.json` with the existing proxy credentials. Optional `target.json.models` maps `claude`, `codex`, and `pi` to exact IDs from that host's current catalogue. Keep both files out of Git. The harness uses locator assertions compatible with the production CSP; it does not require `unsafe-eval`.
 
 ```sh
 python3 scripts/verify-native-launcher.py --private-dir /absolute/private-directory
@@ -64,3 +64,31 @@ python3 scripts/verify-native-launcher.py --private-dir /absolute/private-direct
 The browser must click the actual native card and observe its new tab. It checks anonymous access denial, sibling launcher links, onboarding identity, and model selectors. Chat evidence requires a new verification timestamp and both replies. An installed CLI, a credential file, a model list or a generated pairing link alone does not count as a successful conversation or completed official App pairing.
 
 Live deployment and official App pairing results are recorded separately when executed. Historical evidence from the retired preload architecture is not evidence for this release.
+
+## Provider output limits
+
+An authenticated provider can still refuse a request because its requested output allowance exceeds the account's available credit. The setup page distinguishes billing failures from missing authentication. It never displays the provider's raw error or account details.
+
+On the tested Pi 1.1.0 installation, the native `~/.pi/agent/models.json` supports a specific built-in model override:
+
+```json
+{
+  "providers": {
+    "openrouter": {
+      "modelOverrides": {
+        "anthropic/claude-haiku-4.5": { "maxTokens": 2048 }
+      }
+    }
+  }
+}
+```
+
+Merge this entry into an existing file rather than replacing other settings. It contains no credentials. `pi --list-models anthropic/claude-haiku-4.5` confirms the effective limit; newly created sessions load the native setting. This limit applies to this model's Pi conversations, and may truncate long output. The plugin does not silently set account budgets or apply this override to every installation.
+
+## PaaS release boundary
+
+Chart `0.5.8` provides the optional supervision and protected routes; `paseo.enabled` defaults to false. Enabling it requires a matching feature image and the exact external HTTPS origin. Use a stable chart version until the platform's prerelease version parser fix is deployed.
+
+The tested service retains its chart/image during ordinary configuration and workload restarts. **The platform's full Redeploy operation currently follows the product template and replaces a service-specific image/chart.** The default product template has not been promoted to this feature release. Integrating the tested image/chart into that product release policy remains a prerequisite for general commercial rollout.
+
+See [live verification record](native-launcher-verification-20261025.md) for the tested scope and remaining release work.

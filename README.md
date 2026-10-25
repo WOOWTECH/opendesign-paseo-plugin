@@ -16,6 +16,8 @@
 
 **主機需求：** 原生 `od.launch` 外掛入口、原子 MCP 單筆更新 API、同源驗證代理、持久化 HOME／資料目錄及受管理的 Paseo 程序。[部署方式與限制](docs/native-launcher.md)。一般 OD 的「從 Git 匯入 Skill」本身不會安裝後端服務。
 
+[2026-10-25 實測紀錄](docs/native-launcher-verification-20261025.md)：三種代理均已在官方 Paseo App 完成兩輪對話。平台完整 Redeploy 的商品範本整合尚未完成，目前適用於明確啟用的相容主機。
+
 ## 預裝 CLI 映像
 
 原有 `image/Dockerfile` 持續提供 CLI 預裝功能，不會自動啟用 Paseo。歷史驗收紀錄見 [預裝 CLI 映像說明](docs/preinstalled-cli-image.md)。

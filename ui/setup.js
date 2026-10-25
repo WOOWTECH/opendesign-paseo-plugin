@@ -12,6 +12,8 @@
   };
   const diagnostics = {
     PROVIDER_AUTH_REQUIRED: "請先完成官方登入。",
+    PROVIDER_QUOTA_EXHAUSTED: "服務商額度不足，或模型的輸出上限超過可用額度。請在服務商確認額度，或在原生模型設定降低輸出上限後重試。",
+    PROVIDER_TURN_FAILED: "服務商未能完成這輪回覆。請確認所選模型、帳號額度與原生設定，再重新測試。",
     PROVIDER_MODELS_UNAVAILABLE: "目前無法取得模型，請確認帳號與連線。",
     DAEMON_UNREACHABLE: "Paseo 尚未連線，請先啟動服務。",
     NO_AVAILABLE_MODEL: "目前沒有可用模型。",

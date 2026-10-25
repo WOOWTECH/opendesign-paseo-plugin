@@ -184,6 +184,14 @@ test('incomplete follow-up never claims acceptance; completed replies do', async
   assert.match(f.$('test-result').textContent, /本次已取得兩輪/);
 });
 
+test('provider billing failures explain native output limits without claiming a reply', async () => {
+  const f = fixture(); await f.ready(); await f.click('models', catalog('claude'));
+  await f.click('acceptance', completedTest({ passed: false, firstReply: false, followup: false, code: 'PROVIDER_QUOTA_EXHAUSTED' }));
+  assert.match(f.$('test-result').textContent, /尚未確認兩輪/);
+  assert.match(f.$('test-result').textContent, /額度不足/);
+  assert.match(f.$('test-result').textContent, /降低輸出上限/);
+});
+
 test('old or mismatched direct acceptance cannot be called the selected current test', async () => {
   const f = fixture(); await f.ready(); await f.click('models', catalog('claude'));
   await f.click('acceptance', current().lastVerification);
