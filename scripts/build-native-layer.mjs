@@ -10,8 +10,11 @@ import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import ts from 'typescript';
 import assert from 'node:assert/strict';
+import {loadNativeProfile} from '../image/native-source/profiles.mjs';
 const root=path.resolve(import.meta.dirname,'..');
 const destination=process.argv[2];
+const profile=loadNativeProfile(process.argv[3]);
+assert(process.argv.length<=4,'usage: build-native-layer.mjs ABSOLUTE_OUTPUT [PROFILE_ID]');
 assert(destination&&path.isAbsolute(destination),'pass an absolute output directory');
 assert(!fs.existsSync(destination),'output directory already exists');
 fs.mkdirSync(destination,{recursive:true,mode:0o700});
@@ -20,7 +23,6 @@ const stage=path.join(temp,'layer');fs.mkdirSync(stage);
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 function run(command,args,cwd=root){const r=spawnSync(command,args,{cwd,encoding:'utf8',maxBuffer:8*1024*1024});if(r.status!==0)throw new Error(`${command} failed (${r.status})`);return r.stdout;}
 try{
- const profile=JSON.parse(fs.readFileSync(path.join(root,'image/native-source/profile.json')));
  assert.equal(ts.version,profile.typescript);
  const packed=JSON.parse(run('npm',['pack','--json','--pack-destination',temp]))[0];
  const payload=path.join(stage,'opt/opendesign-paseo');fs.mkdirSync(payload,{recursive:true});
@@ -40,7 +42,7 @@ try{
  }
  const plugin=path.join(stage,'app/plugins/_official/woow/woow-paseo');fs.mkdirSync(plugin,{recursive:true});
  for(const name of ['open-design.json','SKILL.md'])fs.copyFileSync(path.join(root,'launcher',name),path.join(plugin,name));
- const provenance={baseImage:profile.baseImage,nativeSource:profile.nativeSource,typescript:ts.version,files:sources,packageLockSha256:sha(fs.readFileSync(path.join(root,'package-lock.json'))),paseoLockSha256:sha(fs.readFileSync(path.join(root,'vendor/pi-paseo/runtime/package-lock.json')))};
+ const provenance={profileId:profile.profileId,baseImage:profile.baseImage,nativeSource:profile.nativeSource,...(profile.hostSource?{hostSource:profile.hostSource}:{}),typescript:ts.version,files:sources,packageLockSha256:sha(fs.readFileSync(path.join(root,'package-lock.json'))),paseoLockSha256:sha(fs.readFileSync(path.join(root,'vendor/pi-paseo/runtime/package-lock.json')))};
  fs.writeFileSync(path.join(payload,'BUILD.json'),JSON.stringify(provenance,null,2)+'\n');
  const layer=path.join(destination,'native-paseo-layer.tar');
  run('tar',['--sort=name','--mtime=@0','--owner=0','--group=0','--numeric-owner','--mode=u+rwX,go+rX,go-w','-cf',layer,'-C',stage,'.']);

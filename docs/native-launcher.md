@@ -37,6 +37,8 @@ The optional release is a separately named image built from an immutable compati
 ```sh
 npm ci --ignore-scripts
 node scripts/build-native-layer.mjs /absolute/new/build-directory
+# Preserve the separately verified Omnigent 0.1.4 host image:
+node scripts/build-native-layer.mjs /absolute/new/combined-build omnigent-0.1.4
 # Use your authorized registry identity; never place credentials in commands.
 crane append --platform linux/amd64 \
   --base '<baseImage from build.json>' \
@@ -45,7 +47,18 @@ crane append --platform linux/amd64 \
   --set-base-image-annotations
 ```
 
-The output receipt includes source, compiler, lockfile and layer hashes. The image retains the base ENTRYPOINT and user. A host chart must enable supervision and authenticated routes together. Disable the optional chart feature and restore the previously pinned image to roll back; keep the existing persistent data and home volumes.
+The output receipt includes the selected profile, actual immutable host image, source, compiler, lockfile and layer hashes. Accepted profiles are:
+
+| Profile | Host |
+| --- | --- |
+| `open-design-w2.4` (default) | Original reviewed host |
+| `open-design-w2.4-mobile` | Same host with native mobile launcher actions fixed |
+| `omnigent-0.1.4` | Original combined Omnigent host |
+| `omnigent-0.1.4-mobile` | Same Omnigent host with native mobile launcher actions fixed |
+
+The Omnigent profiles preserve that host's server, SDK and bundled launchers. Its two existing MCP source modules are identical to the reviewed base; the third MCP module is additive. Mobile profiles add only a source-built static web export and its provenance manifest. Their base images have passed real containerd extraction and all 764 web-file hash comparisons. These profiles do not claim compatibility with other host releases.
+
+The image retains the base ENTRYPOINT and user. A host chart must enable supervision and authenticated routes together. Disable the optional chart feature and restore the previously pinned image to roll back; keep the existing persistent data and home volumes.
 
 The source is downloadable, but building against a private base registry requires that registry's access. This does not claim compatibility with arbitrary upstream OD releases.
 
@@ -59,6 +72,8 @@ For authorized real browser checks, create a private directory (mode `0700`) con
 python3 scripts/verify-native-launcher.py --private-dir /absolute/private-directory
 # Runs real, potentially billable two-turn conversations for all three providers:
 python3 scripts/verify-native-launcher.py --private-dir /absolute/private-directory --chat
+# Targeted retry; keep failed-run evidence in a separate private directory:
+python3 scripts/verify-native-launcher.py --private-dir /absolute/private-retry-directory --provider pi --chat
 ```
 
 The browser must click the actual native card and observe its new tab. It checks anonymous access denial, sibling launcher links, onboarding identity, and model selectors. Chat evidence requires a new verification timestamp and both replies. An installed CLI, a credential file, a model list or a generated pairing link alone does not count as a successful conversation or completed official App pairing.
@@ -91,4 +106,17 @@ Chart `0.5.8` provides the optional supervision and protected routes; `paseo.ena
 
 The tested service retains its chart/image during ordinary configuration and workload restarts. **The platform's full Redeploy operation currently follows the product template and replaces a service-specific image/chart.** The default product template has not been promoted to this feature release. Integrating the tested image/chart into that product release policy remains a prerequisite for general commercial rollout.
 
+The service-specific deployment policy implementation is prepared in platform PR1996, commit `f24d1dff3c2b6b108268c616ef74a97b7cd574aa`: administrators can pin an exact chart and immutable image while other services follow their product template. It has passed 63 focused real Odoo tests, 39 resolver tests, eight JSON parser checks and eight browser GUI checks. It has not yet been released to the production platform; the repository requires human merge and build approval. These tests do not substitute for a production full Redeploy acceptance run.
+
 See [live verification record](native-launcher-verification-20261025.md) for the tested scope and remaining release work.
+
+## 手機與桌面入口驗收
+
+部署後可用 `python3 scripts/verify-responsive-launchers.py --private-dir /absolute/private-dir`
+驗證 320、390、720、721、1440px 的列表及詳細頁「開啟」。每一項都實際點按並驗證新分頁，
+手機操作區至少 44×44px。需要 Python Playwright 與 Chromium。
+
+私有目錄權限必須為 `0700`，包含 `target.json`（`{"base":"https://your-od.example","omnigent":true}`）
+及 `browser-auth.json`（`username`、`password`）；未安裝 Omnigent 時省略 `omnigent`。
+帳密檔請設為 `0600`，不要放進 repo。此腳本不執行模型登入或對話；結果寫入同目錄的
+`responsive-launcher-proof.json`，不包含帳密或配對連結。模型對話另用 `verify-native-launcher.py --chat` 驗收。

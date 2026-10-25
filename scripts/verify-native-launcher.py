@@ -84,7 +84,7 @@ async def verify(args, proof):
         proof['stage'] = 'model-controls'
         await expect(setup.locator('#models')).to_be_enabled()
         proof['providers'] = {}
-        for provider in ['claude', 'codex', 'pi']:
+        for provider in args.provider or ['claude', 'codex', 'pi']:
             proof['stage'] = provider + '-models'
             await setup.locator('#provider').select_option(provider)
             await setup.locator('#models').click()
@@ -129,6 +129,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--private-dir', required=True)
     parser.add_argument('--chat', action='store_true')
+    parser.add_argument('--provider', action='append', choices=['claude', 'codex', 'pi'],
+                        help='Limit acceptance to a provider; repeat for several. Default: all three.')
     args = parser.parse_args()
     proof = {'checkedAt': datetime.now(timezone.utc).isoformat(), 'realChatsRequested': args.chat, 'passed': False}
     try:

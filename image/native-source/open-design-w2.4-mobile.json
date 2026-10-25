@@ -1,0 +1,10 @@
+{
+  "baseImage": "jcr-prod.woowtech.io/woow-paas-docker-local/open-design:20261025-paseo-mobile-2fef8017bba4@sha256:efc4b40bb1186cd9e81b9f590a58d0bee385cd99fd6a5830e75914c3044d3cd4",
+  "hostSource": {
+    "repository": "https://git-prod.woowtech.io/woow-paas/open-design",
+    "commit": "2fef8017bba43aac3b94ffadbb8da15678016e83",
+    "baseCommit": "d83a189f0a033fb224d71a2539dae0e5cfa8c785",
+    "webLayerSha256": "c3c2a6c17fc80c44c1bcd50b590381861fbba3c77be1b9b4019d22dadced66fd",
+    "compatibility": "The native mobile launcher fix is backported to the reviewed w2.4 Paseo source. Only its production web export and build manifest are added to the original immutable base; the daemon and bundled plugin set remain unchanged."
+  }
+}

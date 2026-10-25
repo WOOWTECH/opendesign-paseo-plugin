@@ -1,0 +1,8 @@
+{
+  "baseImage": "jcr-prod.woowtech.io/woow-paas-docker-local/open-design:20261025.085600-omnigent-f95a85bcd534-candidate@sha256:e6d4e1aa6314b5d6cab052a630b9388360fb4710c517b056c17aa24932601b3a",
+  "hostSource": {
+    "repository": "https://github.com/WOOWTECH/opendesign-omnigent",
+    "commit": "f95a85bcd534c3b981b0a9a494b0c92f9dca480d",
+    "compatibility": "mcp-config.ts and mcp-routes.ts are byte-identical to the reviewed w2.4 base; routes/mcp-servers.ts is a new module. All Omnigent modules and web assets remain in the immutable host image."
+  }
+}

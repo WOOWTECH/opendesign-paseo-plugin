@@ -40,9 +40,11 @@
     "docs/native-launcher.md",
     "host/native-mcp.mjs",
     "scripts/verify-native-launcher.py",
+    "scripts/verify-responsive-launchers.py",
     "scripts/check-launcher-package.mjs",
     "bin/supervise.mjs",
-    "docs/native-launcher-verification-20261025.md"
+    "docs/native-launcher-verification-20261025.md",
+    "docs/paas-service-pin-rollout.md"
   ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",

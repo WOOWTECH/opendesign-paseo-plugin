@@ -1,0 +1,10 @@
+{
+  "baseImage": "jcr-prod.woowtech.io/woow-paas-docker-local/open-design:20261025-omnigent-mobile-721f80835646-r2@sha256:c9ce744b583686ec717c60f66cb4d9844dd983c9658354f9af54384c6c75cc5b",
+  "hostSource": {
+    "repository": "https://github.com/WOOWTECH/opendesign-omnigent",
+    "commit": "721f80835646d4d53ffc9e9d898aa54c965e3b64",
+    "baseCommit": "f95a85bcd534c3b981b0a9a494b0c92f9dca480d",
+    "webLayerSha256": "2f85842e3f06cbf5e3473e1721db45b9ec227a83582a700167c6f6b6ed9cb8bd",
+    "compatibility": "The host adds only the compiled native web export and its build manifest to the immutable Omnigent 0.1.4 base. Its daemon modules are unchanged and retain the reviewed MCP API compatibility."
+  }
+}
