@@ -33,10 +33,13 @@
 {
   "image": {
     "repository": "jcr-prod.woowtech.io/woow-paas-docker-local/open-design",
-    "tag": "paseo-omnigent-mobile-0.2.0-20261025-01d1f22de3ce@sha256:d2677bf76f4b44bc4b344d1e254d4da0f33361e3bf01db92762e1deb9ef41454"
+    "tag": "20261025.104554-omnigent-b3270069b935-candidate@sha256:07a7767f12962fe6c1defc80a0de36040082affae226524218d0cf83d7599e71"
   }
 }
 ```
+
+上面的 Omnigent 0.1.5 映像來自後續原生 Omnigent 發布，繼承本輪已驗證的 Paseo 映像與手機修正。
+若服務已有更新的授權發布版本，應先驗證該版本，不可直接覆蓋成上述歷史版本。
 
 保持原服務的 `paseo.enabled`、正確 HTTPS origin、儲存卷與帳號設定。設定只限指定服務，
 不修改共用商品範本或其他租戶。返回跟隨範本時，表單會清空固定值；下一次完整 Redeploy

@@ -70,11 +70,18 @@ Paseo runtime、初始化對話、原生 MCP、設定頁及官方 App 配對已�
 修正為明確包含父目錄項目的 layer，再於隔離 Pod 真正下載／解壓並逐一核對 764 個前端檔案。
 兩個主機版本均通過此檢查。失敗的候選映像不列入下列部署指引或建置 profile。
 
-服務 244 最終組合：chart `0.5.8`、revision `33`，映像
+服務 244 本輪 Paseo 部署組合：chart `0.5.8`、revision `33`，映像
 `paseo-omnigent-mobile-0.2.0-20261025-01d1f22de3ce@sha256:d2677bf76f4b44bc4b344d1e254d4da0f33361e3bf01db92762e1deb9ef41454`。
 新容器全數 Ready 後才執行上述正式入口測試。
 10:52 UTC 再驗官方 Paseo App 配對成功，主機身份匹配；桌面及手機四個入口可正常開啟，
 三個匿名端點均為 401。Claude／Codex 顯示授權待確認，Pi 的空模型與登入引導正常，沒有執行未授權的模型登入。
+
+後續核對發現另一個 Omnigent 發布流程於 10:48 UTC 更新服務 244 為 revision `34`，映像
+`20261025.104554-omnigent-b3270069b935-candidate@sha256:07a7767f12962fe6c1defc80a0de36040082affae226524218d0cf83d7599e71`。
+該主機升級 Omnigent 至 0.1.5，其 Dockerfile 明確繼承上述 `d2677bf…` Paseo 映像，
+並納入手機入口修正。沒有將它回退到本輪較舊的 Omnigent 0.1.4 映像。
+在該新 digest 再次完成 40 次實際點按，並核對同一 Pod 的 3/3 Ready、15 個原檔案 hash、
+初始化對話、原 daemon `server.js` hash 及四個 MCP 工具；`paseo_status` 實際呼叫成功。
 
 服務 10 最終組合：chart `0.5.8`、revision `30`，映像
 `paseo-mobile-0.2.0-20261025-8b9708a2b535@sha256:8dedab28b9471bc146383d3ca6f1811718b8aeb0190f1a0ab601b5f80b2cfa1c`。
@@ -100,5 +107,6 @@ Pi 首輪與追問均通過；沒有更換帳密或修改原付費模型上限�
 - 真正 Chromium 的 8 項 GUI 驗收：管理員編輯、無效 JSON 拒絕、儲存、reload、解除固定清空設定、租戶畫面不暴露管理員欄位。
 
 這些測試沒有在正式平台執行完整 Redeploy。平台倉庫要求人工合併與建置批准；
+PR1996 的九項必要 CI 已全部通過，PR 仍待真人審閱及合併。
 發布後仍須依 [固定版本操作單](paas-service-pin-rollout.md) 完成 staging 與正式服務驗收。
 因此目前不宣稱已達成全面商業上線。
