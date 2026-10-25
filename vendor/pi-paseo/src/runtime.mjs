@@ -7,8 +7,10 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { locations, readState, updateState, atomicJson, privateDirectory, withRuntimeLock, processIdentity, RuntimeError } from './state.mjs';
 import { findExecutable, runProcess } from './process.mjs';
 import { resolveProviderLaunchers, configureProviders } from './provider-launchers.mjs';
-import { providerReplyError } from './provider-reply.mjs';
-import { assistantEntries, latestAssistantCursor, chatResult } from './chat-result.mjs';
+import { providerReplyError, providerTurnError } from './provider-reply.mjs';
+import { assistantEntries, latestAssistantCursor } from './chat-result.mjs';
+import { safeChatResult as chatResult } from './safe-chat-result.mjs';
+import { usingAcceptanceWorkspace } from './acceptance-workspace.mjs';
 import {singleFlight,daemonStatusWindow} from './single-flight.mjs';
 import {usingAcceptanceAgent} from './acceptance-agent.mjs';
 import {runtimeDirectory,runtimeReady,prepareRuntimeManifest,markRuntimeReady,RUNTIME_REVISION} from './runtime-layout.mjs';
@@ -265,22 +267,24 @@ export async function acceptance(options = {}) {
       row.model = model; row.modeId = modeId || null;
       await withClient(async client => {
         const marker = `PI_PASEO_${randomUUID().replaceAll('-', '').slice(0, 12)}`;
-        const workspace = await client.createWorkspace({ source: { kind: 'directory', path: cwd } });
-        if (!workspace.workspace?.id) throw new RuntimeError('WORKSPACE_CREATE_FAILED');
-        await usingAcceptanceAgent(client,{ provider, model, modeId, cwd, workspaceId: workspace.workspace.id, title: `Pi Paseo ${provider} connection check`, initialPrompt: `Connection check only. Do not use tools or edit files. Remember ${marker}. Reply with exactly ${marker}.`, labels: { 'pi-paseo-acceptance': 'true' } },row,async agent=>{
-        const first = await client.waitForFinish(agent.id, timeoutMs);
-        if (first.status !== 'idle') throw new RuntimeError(first.status === 'permission' ? 'PERMISSION_REQUIRED' : first.status === 'timeout' ? 'PROVIDER_TIMEOUT' : 'PROVIDER_TURN_FAILED');
-        const firstEntries = await assistantEntries(client, agent.id);
-        const firstReply = firstEntries.at(-1)?.item.text || ''; row.firstReply = String(firstReply).includes(marker);
-        if (providerReplyError(firstReply)) throw new RuntimeError(providerReplyError(firstReply));
-        if (!row.firstReply) throw new RuntimeError('EMPTY_OR_UNEXPECTED_REPLY');
-        await client.sendAgentMessage(agent.id, 'What marker did I ask you to remember? Reply with that marker only. Do not use tools.');
-        const second = await client.waitForFinish(agent.id, timeoutMs);
-        if (second.status !== 'idle') throw new RuntimeError(second.status === 'permission' ? 'PERMISSION_REQUIRED' : second.status === 'timeout' ? 'PROVIDER_TIMEOUT' : 'PROVIDER_TURN_FAILED');
-        const secondEntries = await assistantEntries(client, agent.id);
-        const followup = secondEntries.at(-1)?.item.text || ''; row.followup = latestAssistantCursor(secondEntries) !== latestAssistantCursor(firstEntries) && String(followup).includes(marker);
-        if (providerReplyError(followup)) throw new RuntimeError(providerReplyError(followup));
-        row.passed = row.firstReply && row.followup;
+        await usingAcceptanceWorkspace(client, cwd, row, async workspace => {
+          await usingAcceptanceAgent(client, { provider, model, modeId, cwd, workspaceId: workspace.id, title: `Pi Paseo ${provider} connection check`, initialPrompt: `Connection check only. Do not use tools or edit files. Remember ${marker}. Reply with exactly ${marker}.`, labels: { 'pi-paseo-acceptance': 'true' } }, row, async agent => {
+            const first = await client.waitForFinish(agent.id, timeoutMs);
+            const firstError = providerTurnError(first);
+            if (firstError) throw new RuntimeError(firstError);
+            const firstEntries = await assistantEntries(client, agent.id);
+            const firstReply = firstEntries.at(-1)?.item.text || ''; row.firstReply = String(firstReply).includes(marker);
+            if (providerReplyError(firstReply)) throw new RuntimeError(providerReplyError(firstReply));
+            if (!row.firstReply) throw new RuntimeError('EMPTY_OR_UNEXPECTED_REPLY');
+            await client.sendAgentMessage(agent.id, 'What marker did I ask you to remember? Reply with that marker only. Do not use tools.');
+            const second = await client.waitForFinish(agent.id, timeoutMs);
+            const secondError = providerTurnError(second);
+            if (secondError) throw new RuntimeError(secondError);
+            const secondEntries = await assistantEntries(client, agent.id);
+            const followup = secondEntries.at(-1)?.item.text || ''; row.followup = latestAssistantCursor(secondEntries) !== latestAssistantCursor(firstEntries) && String(followup).includes(marker);
+            if (providerReplyError(followup)) throw new RuntimeError(providerReplyError(followup));
+            row.passed = row.firstReply && row.followup;
+          });
         });
       }, timeoutMs * 2 + 30000);
     } catch (error) { row.code = safeCode(error); }
@@ -289,7 +293,7 @@ export async function acceptance(options = {}) {
     if (options.onProgress) await options.onProgress({ ...row });
   }
   const merged = [...previous.filter(row => !selectedProviders.includes(row.provider)), ...results];
-  const result = { checkedAt: new Date().toISOString(), passed: PROVIDERS.every(provider => merged.some(row => row.provider === provider && row.passed && row.cleanup?.archived!==false)), providers: merged };
+  const result = { checkedAt: new Date().toISOString(), passed: PROVIDERS.every(provider => merged.some(row => row.provider === provider && row.passed && row.cleanup?.archived!==false && row.workspaceCleanup?.archived!==false)), providers: merged };
   updateState({ acceptance: result }); return result;
 }
 function chatInput(message) {
