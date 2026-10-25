@@ -11,6 +11,7 @@ import base64
 from datetime import datetime, timezone
 import json
 import os
+import traceback
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -104,6 +105,7 @@ async def verify(private, proof):
                         await popup.close()
                         proof['checks'].append({'width': width, 'plugin': plugin, 'location': location, 'clicked': True, 'newTab': True})
                         if location == 'detail':
+                            proof['stage'] = f'{width}:{plugin}:return-to-list'
                             await page.locator('.plugin-suite-detail__back').click()
                             await expect(card).to_be_visible()
                 await context.close()
@@ -127,6 +129,11 @@ def main():
     except Exception as error:
         proof['code'] = str(error) if isinstance(error, CheckFailed) else 'BROWSER_CHECK_FAILED'
         proof['category'] = type(error).__name__
+        # Source locations help diagnose navigation failures without retaining
+        # exception messages, page contents or URLs that may contain credentials.
+        proof['frames'] = [{'function': frame.name, 'line': frame.lineno}
+                           for frame in traceback.extract_tb(error.__traceback__)
+                           if frame.filename == __file__]
     with os.fdopen(os.open(private / 'responsive-launcher-proof.json', os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), 'w') as stream:
         json.dump(proof, stream, ensure_ascii=False, indent=2)
     print(json.dumps({'passed': proof['passed'], 'checks': len(proof['checks']), 'stage': proof.get('stage'), 'code': proof.get('code')}))
