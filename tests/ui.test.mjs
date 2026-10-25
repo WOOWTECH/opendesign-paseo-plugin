@@ -131,22 +131,16 @@ test('external-only protected HTML, scoped CSS, portable least-capability native
   assert.doesNotMatch(html, /\bon\w+=|<script[^>]*>\s*[^<\s]|<style\b|type="password"/i);
   const css = fs.readFileSync(new URL('ui/setup.css', root), 'utf8');
   assert.doesNotMatch(css, /url\(|@import|^\s*(?:body|:root|a|button)\s*\{/m);
-  const manifest = JSON.parse(fs.readFileSync(new URL('plugin/open-design.json', root)));
-  assert.equal(manifest.name, 'woowtech-paseo');
+  const manifest = JSON.parse(fs.readFileSync(new URL('launcher/open-design.json', root)));
+  assert.equal(manifest.name, 'woow-paseo');
   assert.equal(manifest.specVersion, '1.0.0');
-  assert.deepEqual(manifest.compat.agentSkills, [{ path: './SKILL.md' }]);
-  assert.deepEqual(manifest.od.capabilities, ['prompt:inject']);
-  assert.equal(manifest.homepage, 'https://github.com/WOOWTECH/opendesign-paseo-plugin');
+  assert.equal(manifest.od.launch.path, '/paseo/setup/');
   assert.doesNotMatch(JSON.stringify(manifest), /installHook|postinstall|subprocess|command|env/);
-  const skill = fs.readFileSync(new URL('plugin/SKILL.md', root), 'utf8');
-  assert.match(skill, /name: woowtech-paseo/);
-  assert.match(skill, /Stock OpenDesign/);
-  assert.match(skill, /woow-paseo/);
+  const skill = fs.readFileSync(new URL('launcher/SKILL.md', root), 'utf8');
+  assert.match(skill, /name: woow-paseo/);
   assert.equal(manifest.od.engineRequirements, undefined);
-  for (const name of ['SKILL.md', 'open-design.json']) {
-    assert.equal(fs.lstatSync(new URL(name, root)).isSymbolicLink(), false);
-    assert.deepEqual(fs.readFileSync(new URL(name, root)), fs.readFileSync(new URL('plugin/' + name, root)), 'Public root copy must match plugin/' + name);
-  }
+  assert.equal(manifest.od.capabilities, undefined);
+
 });
 
 test('initial current status separates historical proof and ignores runtime secrets', async () => {
@@ -550,25 +544,9 @@ test('BFCache restoration discards a pre-hide models reply and refreshes current
 });
 
 
-test('zero-CLI onboarding imports the fixed native plugin before enabling runtime', async () => {
+test('missing bundled integration blocks activation without attempting a retired Git import', async () => {
  const h=fixture();await h.ready(current({installed:false,pluginInstalled:false,phase:'disabled',desiredEnabled:false}));
- assert.equal(h.$('import-plugin').hidden,false);assert.equal(h.$('enable').disabled,true);
- h.responses.push({ok:true,status:200,text:async()=> 'event: done\ndata: {}\n\n'});
- h.responses.push(h.response(current({installed:false,pluginInstalled:true,phase:'installing'})));
- await h.click('import-plugin');
- const call=h.calls.find(c=>c.url==='/api/plugins/install');assert.ok(call);
- assert.equal(call.credentials,'same-origin');assert.equal(call.redirect,'error');
- assert.equal(call.json.source,'https://github.com/WOOWTECH/opendesign-paseo-plugin');
- assert.equal(h.$('import-plugin').hidden,true);
- assert.equal(h.calls.some(c=>c.json?.action==='acceptance'),false);
-});
-
-test('native import failure never declares success or silently retries a conversation',async()=>{
- const h=fixture();await h.ready(current({installed:false,pluginInstalled:false}));
- h.responses.push({ok:true,status:200,text:async()=> 'private fixture must not be rendered'});
- h.responses.push(h.response(current({installed:false,pluginInstalled:false})));
- await h.click('import-plugin');
- assert.ok(h.$('notice').textContent.includes('尚未確認'));
- assert.equal(h.doc.body.textContent.includes('private fixture'),false);
- assert.equal(h.calls.filter(c=>c.url==='/api/plugins/install').length,1);
+ assert.equal(h.$('enable').disabled,true);
+ assert.equal(h.doc.byId.has('import-plugin'),false);
+ assert.equal(h.calls.some(c=>c.url==='/api/plugins/install'),false);
 });

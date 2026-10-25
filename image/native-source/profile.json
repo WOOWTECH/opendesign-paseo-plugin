@@ -1,0 +1,26 @@
+{
+  "baseImage": "jcr-prod.woowtech.io/woow-paas-docker-local/open-design:20261024.0943@sha256:5252ac5b3d97b094f3093619ac7eab8003455c817687f9d474f3bf9e26f9e5ce",
+  "nativeSource": {
+    "baseCommit": "b8a1371924d3aedb74dff563a5ff35a783919dee",
+    "featureCommit": "d83a189f0a033fb224d71a2539dae0e5cfa8c785",
+    "license": "Apache-2.0"
+  },
+  "typescript": "5.9.3",
+  "files": [
+    {
+      "source": "mcp-config.ts",
+      "sha256": "b7d3b3dfd9894755b52ac65fd1d02947603a5a7876f1aa5e76eedbbc31ca907a",
+      "target": "app/apps/daemon/dist/mcp-config.js"
+    },
+    {
+      "source": "mcp-routes.ts",
+      "sha256": "f1deed32299d15681f3891e6462f6cfd527f8ee791f2e5bf601ed9e9bc8dac2c",
+      "target": "app/apps/daemon/dist/mcp-routes.js"
+    },
+    {
+      "source": "routes/mcp-servers.ts",
+      "sha256": "4bf5bed14a819a14e1b4d90adae8ea2afe046143e441574b33c62b6cea779a73",
+      "target": "app/apps/daemon/dist/routes/mcp-servers.js"
+    }
+  ]
+}

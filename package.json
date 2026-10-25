@@ -1,7 +1,7 @@
 {
   "name": "@woowtech/opendesign-cli-image",
-  "version": "0.1.0",
-  "description": "OpenDesign OCI image with Claude Code, Codex and Pi CLI preinstalled",
+  "version": "0.2.0",
+  "description": "OpenDesign CLI image and optional native Paseo launcher service",
   "type": "module",
   "license": "MIT",
   "repository": {
@@ -12,14 +12,42 @@
     "node": ">=22.19.0"
   },
   "scripts": {
-    "test": "node --test tests/image-preinstalled-clis.test.mjs",
-    "check": "node scripts/check-image-contract.mjs"
+    "test": "node --test tests/image-preinstalled-clis.test.mjs && npm run test:launcher",
+    "check": "node scripts/check-image-contract.mjs",
+    "test:launcher": "node --test tests/launcher-*.test.mjs tests/runtime-*.test.mjs tests/host-security.test.mjs tests/host-onboarding.test.mjs tests/ui.test.mjs",
+    "start:paseo": "node bin/serve.mjs",
+    "check:launcher": "node scripts/check-launcher-package.mjs"
   },
   "files": [
     "image",
     "README.md",
     "LICENSE",
     "docs/preinstalled-cli-image.md",
-    "scripts/check-image-contract.mjs"
-  ]
+    "scripts/check-image-contract.mjs",
+    "bin/serve.mjs",
+    "bin/mcp.mjs",
+    "src",
+    "host/adapter.mjs",
+    "host/native-onboarding.mjs",
+    "host/security.mjs",
+    "host/standalone.mjs",
+    "ui/setup.html",
+    "ui/setup.js",
+    "ui/setup.css",
+    "ui/native-entry.js",
+    "vendor",
+    "launcher",
+    "docs/native-launcher.md",
+    "host/native-mcp.mjs",
+    "scripts/verify-native-launcher.py",
+    "scripts/check-launcher-package.mjs"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "brace-expansion": "5.0.12",
+    "express": "5.1.0"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
 }

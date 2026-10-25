@@ -1,0 +1,1 @@
+These Apache-2.0 OpenDesign sources are derived from the WoowTech fork. The profile records the exact base and modified revisions. They add native single-entry MCP compare-and-swap updates; the source files are compiled by scripts/build-native-layer.mjs. All other daemon/web modules come from the pinned base image.

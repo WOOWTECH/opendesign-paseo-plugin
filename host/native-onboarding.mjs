@@ -9,7 +9,7 @@ export function nativeHttpClient(port,{fetchImpl=fetch,timeoutMs=15000}={}){
   if(!['GET','POST','PUT','PATCH'].includes(method)||!route.startsWith('/api/')||route.includes('://')||/[\r\n]/.test(route))throw new RuntimeError('INVALID_NATIVE_ROUTE');
   const response=await fetchImpl(`http://127.0.0.1:${port}${route}`,{method,headers:{'Content-Type':'application/json','Sec-Fetch-Site':'same-origin'},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(timeoutMs),redirect:'error'});
   if(response.status===404&&method==='GET')return null;
-  if(!response.ok)throw new RuntimeError('ONBOARDING_NATIVE_REQUEST_FAILED');
+  if(!response.ok){const error=new RuntimeError('ONBOARDING_NATIVE_REQUEST_FAILED');error.status=response.status;throw error;}
   return response.json();
  };
 }
@@ -17,11 +17,21 @@ function readRecord(file){
  assertSafePath(file);
  try{return JSON.parse(fs.readFileSync(file,'utf8'));}catch(error){if(error.code==='ENOENT')return {};throw new RuntimeError('ONBOARDING_STATE_CORRUPT');}
 }
-export function nativeOnboarding({dataDir,request}){
+export function nativeOnboarding({dataDir,request,reconcileExisting=false}){
  const file=path.join(dataDir,'paseo','native-onboarding.json');
  const title='Paseo 連線初始化';
  return async(prompt,remember,known={})=>{
   let record=readRecord(file);
+  if(reconcileExisting&&!record.projectId&&!known.projectId){
+   const listed=await request('GET','/api/projects');
+   if(!Array.isArray(listed?.projects))throw new RuntimeError('ONBOARDING_UNCERTAIN');
+   const matches=listed.projects.filter(row=>typeof row.metadata?.woowPaseoInstallation==='string');
+   if(matches.length>1)throw new RuntimeError('ONBOARDING_UNCERTAIN');
+   if(matches.length===1){
+    record={projectId:matches[0].id,installationMarker:matches[0].metadata.woowPaseoInstallation,recovered:true};
+    atomicJson(file,record);
+   }
+  }
   if(known.projectId&&record.projectId&&known.projectId!==record.projectId)throw new RuntimeError('ONBOARDING_ID_MISMATCH');
   record.projectId ||= known.projectId||randomUUID();
   record.installationMarker ||= randomUUID();
@@ -56,6 +66,13 @@ export function nativeOnboarding({dataDir,request}){
   }
   const result={projectId:record.projectId,conversationId:record.conversationId,url:`/projects/${encodeURIComponent(record.projectId)}/conversations/${encodeURIComponent(record.conversationId)}`};
   remember(result);
+  if(record.recovered&&!record.seeded){
+   const history=await request('GET',`${route}/conversations/${encodeURIComponent(record.conversationId)}/messages`);
+   if(!Array.isArray(history?.messages))throw new RuntimeError('ONBOARDING_UNCERTAIN');
+   const seeded=history.messages.filter(row=>row.role==='assistant'&&typeof row.content==='string'&&row.content.startsWith('Paseo 的安裝與連線由受保護設定頁處理。'));
+   if(seeded.length>1)throw new RuntimeError('ONBOARDING_UNCERTAIN');
+   if(seeded.length===1){record.seeded=true;record.messageId=seeded[0].id;atomicJson(file,record);}
+  }
   if(!record.seeded){
    await request('PATCH',`${route}/conversations/${encodeURIComponent(record.conversationId)}`,{title,sessionMode:'chat'});
    record.messageId ||= randomUUID();atomicJson(file,record);

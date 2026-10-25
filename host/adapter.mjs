@@ -39,14 +39,14 @@ export function registerPaseoBridge(app,options){
  const uiRoot=path.join(packageRoot,'ui');
  if(!path.isAbsolute(dataDir)||!path.isAbsolute(home))throw new RuntimeError('INVALID_RUNTIME_PATH');
  const request=options.nativeRequest||nativeHttpClient(port);
- const native=nativeOnboarding({dataDir,request});
+ const native=nativeOnboarding({dataDir,request,reconcileExisting:options.reconcileExistingOnboarding===true});
  const manager=options.manager||createManager({dataDir,home,packageRoot,env:options.env||process.env,onboarding:native});
  const stateDir=path.join(dataDir,'paseo');
  const registrationFile=path.join(stateDir,'host-registration.json');
  const mcpReceiptFile=path.join(stateDir,'host-mcp.json');
  let operation=null,reconcileTimer=null,stopped=false,generation=0,uninstalling=false;
  let hostQueue=Promise.resolve(),reconciling=null,shutdownPromise=null,uninstallPromise=null;
- const installed=()=>pluginVerified(getInstalledPluginRecord?.(),path.join(dataDir,'plugins'));
+ const installed=options.verifyInstallation||(()=>pluginVerified(getInstalledPluginRecord?.(),path.join(dataDir,'plugins')));
  const mcp=options.mcpConfig||null;
  const desiredEntry={id:MCP_ID,label:'WoowTech Paseo',transport:'stdio',enabled:true,command:process.execPath,args:[path.join(packageRoot,'bin/mcp.mjs')],env:{HOME:path.resolve(home),OPENDESIGN_PASEO_DATA_DIR:path.resolve(dataDir)}};
  const sameEntry=(a,b)=>a?.command===b?.command&&JSON.stringify(a?.args)===JSON.stringify(b?.args)&&a?.transport===b?.transport;
@@ -154,8 +154,19 @@ export function registerPaseoBridge(app,options){
   start(){
    if(stopped||reconcileTimer)return;
    const epoch=generation;
-   void enqueue(async()=>{checkGeneration(epoch);await reconcileWork();checkGeneration(epoch);if(installed()&&!uninstalling){await mergeMcp(false,epoch);checkGeneration(epoch);await manager.restore();}}).catch(()=>{});
+   const startup=enqueue(async()=>{
+    checkGeneration(epoch);await reconcileWork();checkGeneration(epoch);
+    if(installed()&&!uninstalling){
+     const registration=read(registrationFile);
+     if(options.autoEnableOnStart===true&&!registration.activatedOnce){
+      await enable(epoch);checkGeneration(epoch);
+      atomicJson(registrationFile,{...registration,registered:true,activatedOnce:true,updatedAt:new Date().toISOString()});
+     }else{await mergeMcp(false,epoch);checkGeneration(epoch);await manager.restore();}
+    }
+   });
+   void startup.catch(()=>{});
    reconcileTimer=setInterval(()=>{void reconcile().catch(()=>{});},5000);reconcileTimer.unref();
+   return startup;
   },
   disarm(){if(stopped)return;stopped=true;generation++;clearInterval(reconcileTimer);reconcileTimer=null;manager.cancelPending?.();},
   shutdown(){if(shutdownPromise)return shutdownPromise;this.disarm();shutdownPromise=hostQueue.then(()=>manager.shutdown());return shutdownPromise;},

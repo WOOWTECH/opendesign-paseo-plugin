@@ -1,4 +1,4 @@
-name: Verify OpenDesign CLI image
+name: Verify OpenDesign CLI image and Paseo launcher
 on: [push, pull_request]
 permissions:
   contents: read
@@ -10,6 +10,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      - run: npm ci --ignore-scripts
       - run: npm test
+      - run: npm run check:launcher
       - run: npm run check
       - run: docker build -f image/Dockerfile -t opendesign-cli-image:test .
+  verify-launcher-node22:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --ignore-scripts
+      - run: npm run test:launcher
+      - run: npm audit --omit=dev
+      - run: npm audit --omit=dev --prefix vendor/pi-paseo/runtime

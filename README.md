@@ -1,26 +1,39 @@
-# OpenDesign 內建 Claude Code、Codex 與 Pi CLI
+# OpenDesign CLI image + Paseo launcher
 
-這個專案現在提供 OpenDesign 預裝 CLI 的 OCI 映像。OpenDesign 服務啟動後，產品使用者即可在終端與 Local AI 清單中使用 Claude Code、Codex、Pi Coding Agent，不必匯入或安裝 Paseo 插件，也不會在第一次對話時才下載 CLI。
+本 repo 提供預裝 Claude Code、Codex、Pi 的 OpenDesign 映像，以及可選的 **Paseo 原生外掛入口**。
 
-映像固定 OpenDesign 0.24.1 及以下 CLI 版本：
+## Paseo 的 GUI 操作
 
-- Claude Code `2.1.296`
-- Codex CLI `0.162.1`
-- Pi Coding Agent `1.1.0`
+支援此整合的主機啟用後：
 
-管理員部署本 repo 的 `image/Dockerfile` 建出的映像即可。建置期間會以 OpenDesign UID 1001 執行三個 CLI 的版本檢查；任一命令無法啟動，建置就會失敗。服務啟動沿用 OpenDesign 原生 daemon，不注入 Paseo host adapter、preload 或安裝器。
+1. 進入 OpenDesign **外掛 → Expert suites → 已安裝**。
+2. 在 **Paseo 設定** 卡片按 **開啟**，以新分頁開啟同網域設定頁。
+3. 查看安裝進度與現有 Claude Code、Codex、Pi 帳號狀態。
+4. 選擇服務、模型與模式，執行兩輪對話測試。
+5. 產生配對連結，在官方 Paseo App 完成連接後開始對話。
 
-使用者首次使用時，在 OpenDesign GUI 開啟 **Local AI → Rescan**，選擇所需 CLI，再依各工具的官方流程登入自己的帳號。映像只提供程式，不含任何個人授權或 API key；能執行 CLI 不代表帳號已授權或模型對話已驗收。
+首次啟用會下載鎖定版本的執行套件並建立初始化對話；已有屬於此整合的對話會被沿用。手動停止會持久保存，重啟 OD 不會擅自再次啟用。
 
-## 建置與驗收
+**主機需求：** 原生 `od.launch` 外掛入口、原子 MCP 單筆更新 API、同源驗證代理、持久化 HOME／資料目錄及受管理的 Paseo 程序。[部署方式與限制](docs/native-launcher.md)。一般 OD 的「從 Git 匯入 Skill」本身不會安裝後端服務。
+
+## 預裝 CLI 映像
+
+原有 `image/Dockerfile` 持續提供 CLI 預裝功能，不會自動啟用 Paseo。歷史驗收紀錄見 [預裝 CLI 映像說明](docs/preinstalled-cli-image.md)。
+
+## 開發驗證
 
 ```sh
-docker build -f image/Dockerfile -t opendesign-cli-bundle:test .
-npm test -- tests/image-preinstalled-clis.test.mjs
+npm ci --ignore-scripts
+npm test
+npm run check
+npm run check:launcher
+npm audit --omit=dev
+npm audit --omit=dev --prefix vendor/pi-paseo/runtime
 ```
 
-完整的冷啟動、GUI 掃描與服務驗收紀錄放在 [預裝 CLI 映像說明](docs/preinstalled-cli-image.md)。
+`npm test` 包含現行 CLI 映像契約、launcher、執行環境、初始化、安全與設定頁測試。其餘舊版 preload／overlay 測試屬於已停用架構，未列入現行測試命令。
 
-## 舊 Paseo 插件
+## 版本沿革
 
-舊版 Paseo 插件已從 OpenDesign 測試服務的啟動鏈移除，使用者不需要也不應安裝該插件。這個 GitHub repo 現在用來建置與驗收預裝 CLI 映像；請勿再使用過去的 Paseo 插件匯入步驟。
+- `0.1.0`：舊 Paseo 整合曾採 preload／overlay；後續主線改為 CLI 映像。
+- `0.2.0`：可選的獨立 Paseo 服務、原生 bundled 入口與同源設定頁。舊 `install-host.mjs`／preload 不再出現在發行包中。
