@@ -6,6 +6,7 @@ import express from 'express';
 import {installBridgeBodyParser,registerPaseoBridge} from './adapter.mjs';
 import {nativeHttpClient} from './native-onboarding.mjs';
 import {nativeMcpConfig} from './native-mcp.mjs';
+import {haIngressMiddleware,haIngressAllowed} from './ha-ingress.mjs';
 import {assertSafePath,RuntimeError} from '../vendor/pi-paseo/src/state.mjs';
 
 const sourceRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -13,9 +14,11 @@ const absolute=(value)=>{if(typeof value!=='string'||!path.isAbsolute(value))thr
 const port=(value,fallback)=>{const result=Number(value??fallback);if(!Number.isInteger(result)||result<1024||result>65535)throw new RuntimeError('INVALID_PORT');return result;};
 
 export function standaloneConfig(env=process.env){
+ const haIngress=env.OPENDESIGN_PASEO_TRANSPORT==='ha-ingress';
+ if(env.OPENDESIGN_PASEO_TRANSPORT&&!haIngress&&env.OPENDESIGN_PASEO_TRANSPORT!=='https')throw new RuntimeError('CONFIG_INVALID');
  let origin;
- try{const url=new URL(env.OPENDESIGN_PASEO_ORIGIN);if(url.protocol!=='https:'||url.username||url.password||url.pathname!=='/'||url.search||url.hash)throw 0;origin=url.origin;}catch{throw new RuntimeError('CONFIG_INVALID');}
- return {dataDir:absolute(env.OPENDESIGN_PASEO_DATA_DIR),home:absolute(env.HOME),
+ if(!haIngress)try{const url=new URL(env.OPENDESIGN_PASEO_ORIGIN);if(url.protocol!=='https:'||url.username||url.password||url.pathname!=='/'||url.search||url.hash)throw 0;origin=url.origin;}catch{throw new RuntimeError('CONFIG_INVALID');}
+ return {haIngress,socketPath:haIngress?absolute(env.OPENDESIGN_PASEO_SOCKET):undefined,dataDir:absolute(env.OPENDESIGN_PASEO_DATA_DIR),home:absolute(env.HOME),
   bundledPlugin:absolute(env.OPENDESIGN_PASEO_BUNDLED_PLUGIN),packageRoot:sourceRoot,
   nativePort:port(env.OPENDESIGN_PASEO_NATIVE_PORT,7457),listenPort:port(env.OPENDESIGN_PASEO_PORT,7460),
   origin,autoEnableOnStart:env.OPENDESIGN_PASEO_AUTO_ENABLE==='1',reconcileExistingOnboarding:true,env};
@@ -40,9 +43,11 @@ export function createStandaloneApp(config,{manager,nativeRequest,mcpConfig}={})
  const request=nativeRequest||nativeHttpClient(config.nativePort);
  const verifyInstallation=()=>verifyBundledInstallation(config.bundledPlugin,config.packageRoot);
  if(!verifyInstallation())throw new RuntimeError('CONFIG_PLUGIN_NOT_INSTALLED');
- installBridgeBodyParser(app,{allowedOrigins:[config.origin]});
+ if(config.haIngress)app.use(haIngressMiddleware);
+ const authorization={allowedOrigins:[config.origin],...(config.haIngress?{authorizeRequest:haIngressAllowed}:{})};
+ installBridgeBodyParser(app,authorization);
  const bridge=registerPaseoBridge(app,{...config,port:config.nativePort,
-  allowedOrigins:[config.origin],nativeRequest:request,verifyInstallation,manager,mcpConfig:mcpConfig||nativeMcpConfig(request)});
+  ...authorization,nativeRequest:request,verifyInstallation,manager,mcpConfig:mcpConfig||nativeMcpConfig(request)});
  app.get('/healthz',(_req,res)=>{const ok=verifyInstallation();return res.status(ok?200:503).json({ok,service:'opendesign-paseo'});});
  app.use((_req,res)=>res.status(404).json({error:{code:'NOT_FOUND'}}));
  app.use((_err,_req,res,_next)=>res.status(500).json({error:{code:'OPERATION_FAILED'}}));

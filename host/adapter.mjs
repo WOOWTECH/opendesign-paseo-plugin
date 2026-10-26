@@ -25,16 +25,17 @@ function pluginVerified(record,root){
  }catch{return false;}
 }
 /** Before the host's general JSON parser; malformed request bytes never enter an exception response. */
-export function installBridgeBodyParser(app,{allowedOrigins=[]}={}){
+export function installBridgeBodyParser(app,{allowedOrigins=[],authorizeRequest=req=>requestAllowed(req,allowedOrigins)}={}){
  app.use('/api/paseo-bridge',(req,res,next)=>{
   setPrivateHeaders(res);
-  if(!requestAllowed(req,allowedOrigins))return json(res,publicError(new BridgeError('UNTRUSTED_REQUEST',403)),403);
+  if(!authorizeRequest(req))return json(res,publicError(new BridgeError('UNTRUSTED_REQUEST',403)),403);
   if(req.method!=='POST')return next();
   void readBody(req).then(body=>{req.body=body;next();},error=>{req.resume?.();json(res,publicError(error),error.status||400);});
  });
 }
 export function registerPaseoBridge(app,options){
  const {dataDir,home,port,allowedOrigins=[],getInstalledPluginRecord}=options;
+ const authorizeRequest=options.authorizeRequest||((req)=>requestAllowed(req,allowedOrigins));
  const packageRoot=options.packageRoot||sourceRoot;
  const uiRoot=path.join(packageRoot,'ui');
  if(!path.isAbsolute(dataDir)||!path.isAbsolute(home))throw new RuntimeError('INVALID_RUNTIME_PATH');
@@ -113,17 +114,26 @@ export function registerPaseoBridge(app,options){
  };
  app.get('/paseo/setup',(_req,res)=>{
   setPrivateHeaders(res);res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+  const prefix=res.locals.paseoIngressPath;
+  if(prefix){
+   const html=fs.readFileSync(path.join(uiRoot,'setup.html'),'utf8')
+    .replace('<html lang="zh-Hant">',`<html lang="zh-Hant" data-ingress-path="${prefix}">`)
+    .replace(/(href|src)="\/(?!\/)/g,`$1="${prefix}/`)
+    .replace('name="referrer" content="no-referrer"','name="referrer" content="same-origin"');
+   res.setHeader('Referrer-Policy','same-origin');
+   return res.type('html').send(html);
+  }
   return res.sendFile('setup.html',{root:uiRoot,dotfiles:'deny'});
  });
  const assets={'setup.js':'setup.js','setup.css':'setup.css','entry.js':'native-entry.js'};
  for(const [url,file] of Object.entries(assets))app.get(`/paseo/assets/${url}`,(_req,res)=>{setPrivateHeaders(res);res.sendFile(file,{root:uiRoot,dotfiles:'deny'});});
  app.get('/paseo/entry.js',(_req,res)=>{setPrivateHeaders(res);res.sendFile('native-entry.js',{root:uiRoot,dotfiles:'deny'});});
  app.get('/api/paseo-bridge',(req,res)=>{
-  if(!requestAllowed(req,allowedOrigins))return json(res,publicError(new BridgeError('UNTRUSTED_REQUEST')),403);
+  if(!authorizeRequest(req))return json(res,publicError(new BridgeError('UNTRUSTED_REQUEST')),403);
   void status().then(value=>json(res,value),error=>json(res,publicError(error),503));
  });
  app.post('/api/paseo-bridge',(req,res)=>{
-  if(!requestAllowed(req,allowedOrigins))return json(res,publicError(new BridgeError('UNTRUSTED_REQUEST')),403);
+  if(!authorizeRequest(req))return json(res,publicError(new BridgeError('UNTRUSTED_REQUEST')),403);
   void (async()=>{
    const body=validateAction(req.body);
    if(body.action==='status')return json(res,await status());
