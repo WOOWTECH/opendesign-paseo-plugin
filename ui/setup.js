@@ -1,7 +1,9 @@
 /* Protected, same-origin bridge UI. The host owns authentication and sanitized DTOs. */
 (() => {
   "use strict";
-  const endpoint = "/api/paseo-bridge";
+  const configuredPrefix = document.documentElement?.getAttribute?.("data-ingress-path") || "";
+  const prefix = /^\/api\/hassio_ingress\/[A-Za-z0-9_-]{16,128}$/.test(configuredPrefix) ? configuredPrefix : "";
+  const endpoint = prefix + "/api/paseo-bridge";
   const providers = ["claude", "codex", "pi"];
   const names = { claude: "Claude Code", codex: "Codex", pi: "Pi" };
   const phaseLabels = {
@@ -183,8 +185,9 @@
     try {
       const url = new URL(value, window.location.origin);
       if (url.origin !== window.location.origin || url.username || url.password || url.hash ||
+          !/^\/projects?\/[A-Za-z0-9_-]+(?:\/conversations\/[A-Za-z0-9_-]+)?$/.test(url.pathname) ||
           [...url.searchParams].some(([key, value]) => !["conversation", "conversationId", "projectId"].includes(key) || !/^[A-Za-z0-9_-]{1,200}$/.test(value))) return;
-      $("onboarding-link").setAttribute("href", url.pathname + url.search);
+      $("onboarding-link").setAttribute("href", prefix + url.pathname + url.search);
       $("onboarding-link").hidden = false;
     } catch {}
   }

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import fs from 'node:fs';
 import {setTimeout as delay} from 'node:timers/promises';
 import {standaloneConfig,createStandaloneApp} from '../host/standalone.mjs';
 import {nativeHttpClient} from '../host/native-onboarding.mjs';
@@ -8,7 +9,14 @@ import {nativeHttpClient} from '../host/native-onboarding.mjs';
 const config=standaloneConfig();
 const request=nativeHttpClient(config.nativePort);
 const {app,bridge}=createStandaloneApp(config,{nativeRequest:request});
-const server=app.listen(config.listenPort,'127.0.0.1');
+if(config.haIngress){
+ try{
+  const previous=fs.lstatSync(config.socketPath);
+  if(!previous.isSocket()||previous.uid!==process.getuid())throw new Error('UNSAFE_SOCKET');
+  fs.unlinkSync(config.socketPath);
+ }catch(error){if(error.code!=='ENOENT')throw error;}
+}
+const server=config.haIngress?app.listen(config.socketPath,()=>fs.chmodSync(config.socketPath,0o660)):app.listen(config.listenPort,'127.0.0.1');
 const abort=new AbortController();let closing;
 function shutdown(){
  if(closing)return closing;

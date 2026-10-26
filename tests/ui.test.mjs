@@ -64,8 +64,9 @@ class Clock {
     this.now = end; await flush();
   }
 }
-function fixture(code = script) {
+function fixture(code = script, ingressPrefix = "") {
   const clock = new Clock(), doc = new Element('document');
+  doc.documentElement = { getAttribute: name => name === 'data-ingress-path' ? ingressPrefix : null };
   doc.doc = doc; doc.hidden = false; doc.byId = new Map();
   doc.body = new Element('body', doc);
   doc.getElementById = id => doc.byId.get(id);
@@ -619,4 +620,17 @@ test('login start completing across a tab switch restores only by a fresh protec
   await f.clock.advance(5000);
   assert.deepEqual(f.calls.at(-1).json, { action: 'login', provider: 'claude', step: 'status' });
   assert.match(f.$('login-message').textContent, /登入流程已完成/);
+});
+
+test('HA setup keeps bridge calls and onboarding links beneath the server-validated prefix', async () => {
+  const prefix='/api/hassio_ingress/'+'a'.repeat(32);
+  const f=fixture(script,prefix);
+  await f.ready(current({onboarding:{url:'/projects/p1/conversations/c1'}}));
+  assert.equal(f.calls[0].url,prefix+'/api/paseo-bridge');
+  assert.equal(f.$('onboarding-link').getAttribute('href'),prefix+'/projects/p1/conversations/c1');
+  await f.click('onboarding',{url:'//evil.test/projects/p1'});
+  assert.equal(f.calls.at(-1).url,prefix+'/api/paseo-bridge');
+  assert.equal(f.$('onboarding-link').hidden,true);
+  const bad=fixture(script,'/api/hassio_ingress/../evil');await bad.ready();
+  assert.equal(bad.calls[0].url,'/api/paseo-bridge');
 });
