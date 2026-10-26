@@ -105,11 +105,11 @@ Merge this entry into an existing file rather than replacing other settings. It 
 
 Chart `0.5.8` provides the optional supervision and protected routes; `paseo.enabled` defaults to false. Enabling it requires a matching feature image and the exact external HTTPS origin. Use a stable chart version until the platform's prerelease version parser fix is deployed.
 
-The tested service retains its chart/image during ordinary configuration and workload restarts. **The platform's full Redeploy operation currently follows the product template and replaces a service-specific image/chart.** The default product template has not been promoted to this feature release. Integrating the tested image/chart into that product release policy remains a prerequisite for general commercial rollout.
+**Full Redeploy preserves a service-specific chart/image when the platform has deployed the administrator-only pinning feature and that service is explicitly pinned.** Services using the default template policy continue to follow their product template. The shared product template has not been promoted to this feature release.
 
-The service-specific deployment policy implementation lets administrators pin an exact chart and immutable image while other services follow their product template. It passed focused Odoo, resolver, parser and browser checks, a full 7,477-test Odoo suite and [two isolated native Redeploy runs](native-redeploy-verification-20261025.md). The platform maintainer must still release this policy through its normal review and build approval process. These tests do not substitute for a production full Redeploy acceptance run.
+The policy passed focused Odoo, resolver, parser and browser checks, a full 7,477-test Odoo suite and [two isolated native Redeploy runs](native-redeploy-verification-20261025.md). It has now been released on the tested production platform. Two designated hosts each completed two real calls to the native full Redeploy action, preserving their exact chart/image, persistent volumes, project files and onboarding conversation. An existing newer Omnigent host image was retained.
 
-See [live verification record](native-launcher-verification-20261025.md) for the tested scope and remaining release work.
+See the [production verification record](production-redeploy-verification-20261026.md) and [deployment checklist](paas-service-pin-rollout.md) for scope and remaining checks. Production actions were invoked through the native service method; saving the administrator form in an authenticated production browser remains unverified. Other platforms must deploy and verify this feature themselves before relying on pins.
 
 ## 手機與桌面入口驗收
 
