@@ -37,13 +37,13 @@ Claude 首次測試遇到另一程序正在更新 OAuth 的暫時錯誤；保留
 | Codex | `gpt-6.1-sol` | 通過／通過 |
 | Pi | 工作區既有 LiteLLM 路由，`gpt-5.6-sol` | 通過／通過 |
 
-此主機的 Pi 模型目錄只有兩條既有 LiteLLM 路由，不包含標準主機使用的 OpenRouter 模型。依當前目錄選擇一條可用路由後對話通過；原預設路由的對話失敗證據仍保留，不算已修復。沒有從其他工作區搬移帳號，也沒有重設供應商登入。真實 stdio MCP 狀態及三種模型目錄讀取成功，44 個 Paseo runtime 檔案及四個原生入口 manifest 均通過檢查。
+此主機的 Pi 模型目錄只有兩條既有 LiteLLM 路由，不包含標準主機使用的 OpenRouter 模型。原預設路由在原生會話紀錄中回傳 HTTP 429／`litellm.RateLimitError`；使用相同工作區既有授權的另一條路由後，兩輪對話通過。原路由的上游限流尚未排除，不算已修復，也沒有改動預設模型。沒有從其他工作區搬移帳號或重設供應商登入。真實 stdio MCP 狀態及三種模型目錄讀取成功，44 個 Paseo runtime 檔案及四個原生入口 manifest 均通過檢查。
 
 含 Omnigent 主機的四個外掛入口也在 320、390、720、721、1440px 的列表與詳細頁完成 40 項實際點按、新分頁及目的地檢查。兩台合計 70 項通過。
 
 ## 官方 Paseo App
 
-從標準主機的設定頁實際按下配對，官方 App 顯示該 daemon 為 Online／Relay，連線身分與產生的配對一致。在官方 App 選擇 Codex `gpt-6.1-sol` 與 Default permissions，建立測試對話並完成兩輪回覆；第二輪保留第一輪標記。
+從標準主機的設定頁實際按下配對，官方 App 顯示該 daemon 為 Online／Relay，連線身分與產生的配對一致。在官方 App 選擇 Codex `gpt-6.1-sol` 與 Default permissions，建立測試對話並完成兩輪回覆；第二輪保留第一輪標記。最後只封存本次建立的代理，並由 History 確認封存狀態。
 
 這項驗證與設定頁的對話測試分開執行。OpenDesign 的 Basic 帳密僅送到該主機來源；官方 App 使用獨立瀏覽器 context，配對資料保留在記憶體，不刊登在證據或 repo 中。本次官方 App 對話只實測 Codex；不將設定頁的 Claude／Pi 結果擴大解讀為官方 App 全模型驗收。
 
