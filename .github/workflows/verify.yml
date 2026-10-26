@@ -28,8 +28,8 @@ jobs:
       - run: npm audit --omit=dev --prefix vendor/pi-paseo/runtime
 
   verify-auth-browser:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,8 +38,37 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install playwright==1.62.0
-      - run: python -m playwright install --with-deps chromium
-      - run: node --test tests/launcher-auth-browser.test.mjs
+      - name: Configure bounded Ubuntu dependency downloads
+        timeout-minutes: 2
+        run: |
+          # The Azure Ubuntu mirror exhausted the previous job's 10-minute limit.
+          # Keep Ubuntu's signed repositories, using the official archive mirror.
+          sudo python3 - <<'PY'
+          from pathlib import Path
+
+          sources = [Path('/etc/apt/sources.list'), Path('/etc/apt/apt-mirrors.txt')]
+          sources += list(Path('/etc/apt/sources.list.d').glob('*.list'))
+          sources += list(Path('/etc/apt/sources.list.d').glob('*.sources'))
+          for path in sources:
+              if path.is_file():
+                  original = path.read_text()
+                  updated = original.replace('http://azure.archive.ubuntu.com/ubuntu', 'https://archive.ubuntu.com/ubuntu')
+                  updated = updated.replace('https://azure.archive.ubuntu.com/ubuntu', 'https://archive.ubuntu.com/ubuntu')
+                  if updated != original:
+                      path.write_text(updated)
+                      print(f'Using official Ubuntu archive in {path}')
+          Path('/etc/apt/apt.conf.d/80-paseo-ci-downloads').write_text(
+              'Acquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n'
+          )
+          PY
+      - name: Install pinned Playwright
+        timeout-minutes: 3
+        run: python -m pip install playwright==1.62.0
+      - name: Install Chromium and system dependencies
+        timeout-minutes: 12
+        run: python -m playwright install --with-deps chromium
+      - name: Run required browser acceptance tests
+        timeout-minutes: 3
+        run: node --test tests/launcher-auth-browser.test.mjs
         env:
           PASEO_REQUIRE_AUTH_BROWSER: '1'
