@@ -109,7 +109,7 @@ Chart `0.5.8` provides the optional supervision and protected routes; `paseo.ena
 
 The policy passed focused Odoo, resolver, parser and browser checks, a full 7,477-test Odoo suite and [two isolated native Redeploy runs](native-redeploy-verification-20261025.md). It has now been released on the tested production platform. Two designated hosts each completed two real calls to the native full Redeploy action, preserving their exact chart/image, persistent volumes, project files and onboarding conversation. An existing newer Omnigent host image was retained.
 
-See the [production verification record](production-redeploy-verification-20261026.md) and [deployment checklist](paas-service-pin-rollout.md) for scope and remaining checks. Production actions were invoked through the native service method; saving the administrator form in an authenticated production browser remains unverified. Other platforms must deploy and verify this feature themselves before relying on pins.
+See the [production verification record](production-redeploy-verification-20261026.md) and [deployment checklist](paas-service-pin-rollout.md) for scope. Subsequent production browser acceptance used a temporary administrator's normal login, saved and reloaded the native pin form on an undeployed test record, then clicked the real Redeploy button and confirmation on both designated hosts. Both advanced one further Helm revision and preserved their deployment settings and data. Other platforms must deploy and verify this feature themselves before relying on pins.
 
 ## 手機與桌面入口驗收
 

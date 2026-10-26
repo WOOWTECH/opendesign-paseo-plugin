@@ -6,8 +6,8 @@
 
 支援此整合的主機啟用後：
 
-1. 進入 OpenDesign **外掛 → Expert suites → 已安裝**。
-2. 在 **Paseo 設定** 卡片按 **開啟**，以新分頁開啟同網域設定頁。
+1. 進入 OpenDesign **Plugins（外掛）→ Expert suites → Personal**。目前英文介面將已安裝的原生入口放在 `Personal` 分頁。
+2. 在 **Paseo** 卡片按 **Open**，以新分頁開啟同網域的「Paseo 安裝與連線設定」頁。
 3. 查看安裝進度與現有 Claude Code、Codex、Pi 帳號狀態；尚未登入時按 **登入與帳號設定**，依[GUI 帳號連結](docs/native-launcher.md#gui-帳號連結)完成官方授權。
 4. 選擇服務、模型與模式，執行兩輪對話測試。
 5. 產生配對連結，在官方 Paseo App 完成連接後開始對話。
