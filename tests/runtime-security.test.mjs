@@ -130,6 +130,8 @@ test('official authorization URLs reject spoofed host/userinfo/custom port', () 
   assert.equal(officialAuthorizationUrl('https://auth.openai.com/device?code=FIXTURE', 'codex'), 'https://auth.openai.com/device?code=FIXTURE');
   for (const url of ['https://auth.openai.com.evil.invalid/device', 'https://user@auth.openai.com/device', 'https://auth.openai.com:1234/device']) assert.equal(officialAuthorizationUrl(url, 'codex'), null);
   assert.equal(officialAuthorizationUrl('https://claude.ai/oauth/authorize?state=FIXTURE', 'claude'), 'https://claude.ai/oauth/authorize?state=FIXTURE');
+  assert.equal(officialAuthorizationUrl('https://claude.com/cai/oauth/authorize?state=FIXTURE', 'claude'), 'https://claude.com/cai/oauth/authorize?state=FIXTURE');
+  assert.equal(officialAuthorizationUrl('https://claude.com.evil.invalid/cai/oauth/authorize', 'claude'), null);
 });
 
 test('protected login flow exposes transient typed URL/code, public status does not, cancellation clears them', async t => {
@@ -147,6 +149,34 @@ test('protected login flow exposes transient typed URL/code, public status does 
   assert.equal(Object.hasOwn(launchedEnv, 'OD_API_TOKEN'), false);
   await flow.login('cancel', 'codex'); await new Promise(resolve => setImmediate(resolve));
   assert.equal((await flow.login('status', 'codex')).phase, 'cancelled'); assert.equal(JSON.stringify(await flow.login('status', 'codex')).includes('https://'), false);
+});
+
+test('Claude official login accepts a protected authorization code through its CLI stdin', async t => {
+  const context = fixture(t); let submitted = '', child;
+  const flow = createAuthFlow(context, { discover: () => '/tenant/claude', settleMs: 5, launch: (_, args, options) => {
+    assert.deepEqual(args, ['auth', 'login']);
+    assert.deepEqual(options.stdio, ['pipe', 'pipe', 'pipe']);
+    child = new EventEmitter(); child.stdout = new PassThrough(); child.stderr = new PassThrough(); child.stdin = new PassThrough();
+    child.kill = () => { queueMicrotask(() => child.emit('close', null)); return true; };
+    child.stdin.on('data', chunk => { submitted += String(chunk); child.stdout.write('https://claude.com/cai/oauth/authorize?state=FIXTURE'); });
+    queueMicrotask(() => child.stdout.write('Visit https://claude.com/cai/oauth/authorize?state=FIXTURE\nPaste code here if prompted > '));
+    return child;
+  } });
+  t.after(() => flow.dispose());
+  const started = await flow.login('start', 'claude');
+  assert.equal(started.phase, 'awaiting_authorization');
+  assert.equal(started.authorizationUrl, 'https://claude.com/cai/oauth/authorize?state=FIXTURE');
+  assert.equal(started.requiresCode, true);
+  assert.equal(started.inputKind, 'authorization_code');
+  assert.equal(JSON.stringify(flow.publicStatus()).includes('FIXTURE'), false);
+  const pending = await flow.login('complete', 'claude', { code: 'AUTH-CODE-FIXTURE' });
+  assert.equal(pending.phase, 'starting');
+  assert.equal(pending.authorizationUrl, undefined);
+  assert.equal(pending.requiresCode, undefined);
+  assert.equal(submitted, 'AUTH-CODE-FIXTURE\n');
+  child.emit('close', 0);
+  assert.equal((await flow.login('status', 'claude')).phase, 'authorization_completed');
+  assert.equal(JSON.stringify(await flow.login('status', 'claude')).includes('AUTH-CODE-FIXTURE'), false);
 });
 
 test('existing Claude auth is never replaced; unknown providers stay redacted', async t => {

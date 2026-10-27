@@ -7,7 +7,7 @@ import { providers, safeError } from './runtime-context.mjs';
 import { providerEnvironment } from './provider-install.mjs';
 
 const officialHosts = {
-  claude: new Set(['claude.ai', 'console.anthropic.com', 'auth.anthropic.com', 'platform.claude.com']),
+  claude: new Set(['claude.com', 'claude.ai', 'console.anthropic.com', 'auth.anthropic.com', 'platform.claude.com']),
   codex: new Set(['auth.openai.com', 'platform.openai.com', 'openai.com']),
   pi: new Set(['auth.openai.com', 'platform.openai.com', 'openai.com']),
 };
@@ -30,7 +30,7 @@ export function officialAuthorizationUrl(text, provider) {
 }
 
 /** Auth output is transient and available only from protected login(), never status/MCP. */
-export function createAuthFlow(context, { launch = spawn, discover = findExecutable, timeoutMs = 120000, settleMs = 800 } = {}) {
+export function createAuthFlow(context, { launch = spawn, discover = findExecutable, timeoutMs = 900000, settleMs = 800 } = {}) {
   let active;
   const records = new Map();
   const credentialPath = provider => provider === 'claude' ? path.join(context.env.CLAUDE_CONFIG_DIR, '.credentials.json') : provider === 'codex' ? path.join(context.env.CODEX_HOME, 'auth.json') : path.join(context.env.PI_CODING_AGENT_DIR, 'auth.json');
@@ -40,7 +40,7 @@ export function createAuthFlow(context, { launch = spawn, discover = findExecuta
       ...(provider !== 'pi' ? { command: [provider, ...commands[provider]] } : {}), instructions: instructions[provider],
       ...(protectedView && record.authorizationUrl ? { authorizationUrl: record.authorizationUrl } : {}),
       ...(protectedView && record.deviceCode ? { deviceCode: record.deviceCode } : {}),
-      ...(protectedView && record.requiresCode ? { requiresCode: true, inputKind: 'redirect_url_or_code' } : {}) };
+      ...(protectedView && record.requiresCode ? { requiresCode: true, inputKind: provider === 'claude' ? 'authorization_code' : 'redirect_url_or_code' } : {}) };
   };
   const cancel = (phase = 'cancelled') => {
     if (!active) return;
@@ -61,11 +61,16 @@ export function createAuthFlow(context, { launch = spawn, discover = findExecuta
     if (action === 'cancel') { if (active?.provider === provider) cancel(); return snapshot(provider, true); }
     if (action === 'complete') {
       const code = typeof input === 'string' ? input : input?.code;
-      if (provider !== 'pi' || active?.provider !== 'pi' || !records.get('pi')?.requiresCode) throw new RuntimeError('INVALID_LOGIN_ACTION');
+      if (!['pi', 'claude'].includes(provider) || active?.provider !== provider || !records.get(provider)?.requiresCode) throw new RuntimeError('INVALID_LOGIN_ACTION');
       if (typeof code !== 'string' || !code.trim() || code.length > 2048 || /[\x00-\x1f]/.test(code)) throw new RuntimeError('INVALID_LOGIN_INPUT');
       const child = active.child;
-      records.get('pi').requiresCode = false;
-      child.stdin.write(JSON.stringify({ action: 'complete', code }) + '\n');
+      records.get(provider).requiresCode = false;
+      if (provider === 'claude') {
+        records.get(provider).codeSubmitted = true;
+        records.get(provider).phase = 'starting';
+        delete records.get(provider).authorizationUrl;
+      }
+      child.stdin.write(provider === 'pi' ? JSON.stringify({ action: 'complete', code }) + '\n' : code.trim() + '\n');
       await settle(child);
       return snapshot(provider, true);
     }
@@ -83,7 +88,7 @@ export function createAuthFlow(context, { launch = spawn, discover = findExecuta
     if (!executable) throw new RuntimeError('PROVIDER_UNAVAILABLE');
     const record = { phase: 'starting', startedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + timeoutMs).toISOString() };
     records.set(provider, record);
-    const child = launch(executable, provider === 'pi' ? [path.join(context.packageRoot, 'src/pi-auth-worker.mjs')] : commands[provider], { cwd: context.home, env, detached: process.platform === 'linux', shell: false, stdio: [provider === 'pi' ? 'pipe' : 'ignore', 'pipe', 'pipe'] });
+    const child = launch(executable, provider === 'pi' ? [path.join(context.packageRoot, 'src/pi-auth-worker.mjs')] : commands[provider], { cwd: context.home, env, detached: process.platform === 'linux', shell: false, stdio: [provider === 'codex' ? 'ignore' : 'pipe', 'pipe', 'pipe'] });
     const current = { child, provider, timer: setTimeout(() => cancel('expired'), timeoutMs) };
     current.timer.unref(); active = current;
     let output = '', bytes = 0;
@@ -112,7 +117,7 @@ export function createAuthFlow(context, { launch = spawn, discover = findExecuta
         return;
       }
       const url = officialAuthorizationUrl(output, provider);
-      if (url) { record.authorizationUrl = url; record.phase = 'awaiting_authorization'; }
+      if (url && !record.codeSubmitted) { record.authorizationUrl = url; record.phase = 'awaiting_authorization'; if (provider === 'claude') record.requiresCode = true; }
       if (provider === 'codex') {
         const found = output.match(/\b[A-Z0-9]{4,6}-[A-Z0-9]{4,6}\b/);
         if (found) record.deviceCode = found[0];

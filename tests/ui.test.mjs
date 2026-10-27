@@ -291,6 +291,19 @@ test('runtime structured official login, explicit completion, credential honesty
   assert.equal(f.$('login-link').getAttribute('href'), null);
 });
 
+test('Claude Code official claude.com link and authorization code submission use protected login panel', async () => {
+  const f = fixture(); await f.ready();
+  const url = 'https://claude.com/cai/oauth/authorize?state=TRANSIENT';
+  await f.click('login', { provider: 'claude', phase: 'awaiting_authorization', authorizationUrl: url, requiresCode: true, inputKind: 'authorization_code' });
+  assert.equal(f.$('login-link').getAttribute('href'), url);
+  assert.equal(f.$('login-link').hidden, false);
+  assert.equal(f.$('login-input').hidden, false);
+  f.$('login-code-input').value = 'AUTH-CODE-FIXTURE';
+  await f.click('login-submit', { provider: 'claude', phase: 'authorization_completed' });
+  assert.deepEqual(f.calls.at(-1).json, { action: 'login', provider: 'claude', step: 'complete', code: 'AUTH-CODE-FIXTURE' });
+  assert.equal(f.$('login-code-input').value, '');
+});
+
 test('Pi callback input appears only on explicit backend requirement, survives active progress polling and clears on completion', async () => {
   const f = fixture(); await f.ready();
   f.$('provider').value = 'pi'; f.$('provider').emit('change');
@@ -597,7 +610,7 @@ test('authorization return after expiry or explicit close does not restart or re
     await f.click('login', pending);
     if (!expire) await f.click('login-close');
     f.doc.hidden = true; f.doc.emit('visibilitychange');
-    await f.clock.advance(expire ? 125000 : 1000);
+    await f.clock.advance(expire ? 905000 : 1000);
     const count = f.calls.length;
     f.doc.hidden = false; f.doc.emit('visibilitychange');
     await f.clock.advance(0);

@@ -105,7 +105,7 @@
   function scheduleAuthPoll(delayMs = 5000) {
     clearTimeout(authTimer); authTimer = null;
     if (!loginProvider || disposed || busy || authBlocked || document.hidden || status?.operation?.pending) return;
-    if (authAttempts >= 24 || Date.now() >= loginExpiresAt) {
+    if (authAttempts >= 180 || Date.now() >= loginExpiresAt) {
       clearTransient(); loginProvider = null; controls();
       text("notice", "登入進度更新已暫停，需要時請重新開始官方授權。");
       return;
@@ -275,10 +275,10 @@
       schedulePoll(); scheduleAuthPoll();
     }
   }
-  function expireTransient(expiresAt) {
+  function expireTransient(expiresAt, maxDurationMs = 120000) {
     clearTimeout(transientTimer);
     const expiry = timestamp(expiresAt);
-    const duration = expiry ? Math.min(120000, Date.parse(expiry) - Date.now()) : 120000;
+    const duration = expiry ? Math.min(maxDurationMs, Date.parse(expiry) - Date.now()) : maxDurationMs;
     if (duration <= 0) { clearTransient(); loginProvider = null; text("notice", "連結已到期，請重新建立。"); return false; }
     transientTimer = setTimeout(() => {
       clearTransient(); loginProvider = null; controls();
@@ -291,7 +291,7 @@
     try {
       const url = new URL(value);
       const loginHosts = {
-        claude: ["claude.ai", "console.anthropic.com", "auth.anthropic.com", "platform.claude.com"],
+        claude: ["claude.com", "claude.ai", "console.anthropic.com", "auth.anthropic.com", "platform.claude.com"],
         codex: ["auth.openai.com", "platform.openai.com", "openai.com"],
         pi: ["auth.openai.com", "platform.openai.com", "openai.com"],
       };
@@ -310,7 +310,7 @@
     clearTimeout(authTimer); authTimer = null;
     if (action !== "login" || extra.step !== "status") clearTransient();
     if (action !== "login") { loginProvider = null; loginExpiresAt = 0; }
-    if (action === "login" && extra.step === "start") { clearCatalog(); loginProvider = extra.provider; authAttempts = 0; loginExpiresAt = Date.now() + 120000; }
+    if (action === "login" && extra.step === "start") { clearCatalog(); loginProvider = extra.provider; authAttempts = 0; loginExpiresAt = Date.now() + 900000; }
     generation += 1;
     if (readController) { readController.abort(); readController = null; }
     const visibleAtStart = visibilityGeneration, transientAtStart = transientGeneration, operationStartedAt = Date.now();
@@ -399,12 +399,12 @@
           cancelled: "登入流程已取消。",
         }[loginState]);
         if (loginState === "pending") {
-          loginExpiresAt = Math.min(loginExpiresAt || Date.now() + 120000, timestamp(dto.expiresAt) ? Date.parse(dto.expiresAt) : Infinity);
-          if (!expireTransient(new Date(loginExpiresAt).toISOString())) return;
-          requiresInput = extra.provider === "pi" && (dto.requiresCode === true || dto.requiresInput === true || dto.manualCodeRequired === true);
+          loginExpiresAt = Math.min(loginExpiresAt || Date.now() + 900000, timestamp(dto.expiresAt) ? Date.parse(dto.expiresAt) : Infinity);
+          if (!expireTransient(new Date(loginExpiresAt).toISOString(), 900000)) return;
+          requiresInput = ["pi", "claude"].includes(extra.provider) && (dto.requiresCode === true || dto.requiresInput === true || dto.manualCodeRequired === true);
           $("login-input").hidden = !requiresInput;
           if (!requiresInput) $("login-code-input").value = "";
-          if (requiresInput) text("login-message", "請完成官方授權，再將官方回呼網址或授權代碼提交到此處。");
+          if (requiresInput) text("login-message", extra.provider === "claude" ? "請完成官方授權，再將頁面顯示的授權碼提交到此處。" : "請完成官方授權，再將官方回呼網址或授權代碼提交到此處。");
           if (dto.authorizationUrl || dto.url) {
             const url = officialURL(dto.authorizationUrl || dto.url, "login", extra.provider);
             if (!url) throw new Error("INVALID_RESPONSE");
@@ -454,10 +454,10 @@
   });
   $("login").addEventListener("click", () => { void mutate("login", { provider: $("provider").value, step: "start" }); });
   $("login-submit").addEventListener("click", () => {
-    if (loginProvider !== "pi" || !requiresInput) return;
+    if (!["pi", "claude"].includes(loginProvider) || !requiresInput) return;
     const code = $("login-code-input").value.trim();
     if (!code || code.length > 2048) { text("notice", "請輸入官方授權結果，最多 2,048 個字元。"); return; }
-    void mutate("login", { provider: "pi", step: "complete", code });
+    void mutate("login", { provider: loginProvider, step: "complete", code });
   });
   for (const step of ["status", "cancel"]) $("login-" + step).addEventListener("click", () => {
     if (loginProvider) void mutate("login", { provider: loginProvider, step });
