@@ -39,3 +39,5 @@ npm audit --omit=dev --prefix vendor/pi-paseo/runtime
 
 - `0.1.0`：舊 Paseo 整合曾採 preload／overlay；後續主線改為 CLI 映像。
 - `0.2.0`：可選的獨立 Paseo 服務、原生 bundled 入口與同源設定頁。舊 `install-host.mjs`／preload 不再出現在發行包中。
+- `0.2.1`：原生外掛入口、PaaS／Home Assistant 認證適配與兩輪對話驗收流程。
+- `0.2.2`：修正 Claude Code 官方登入網址與完成碼的 GUI 流程，延長官方授權等待時間。
