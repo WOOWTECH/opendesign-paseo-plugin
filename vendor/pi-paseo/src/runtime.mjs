@@ -74,8 +74,11 @@ async function verifyInstanceOwnership(instance) {
   }
 }
 async function installRuntime() {
-  privateDirectory(locations().runtimeDir);
-  if (!runtimeReady(locations())) {
+  // A ready runtime (baked into the image, or installed earlier) is verified but never touched: no mkdir/chmod, no npm,
+  // no receipt rewrite. Only a missing one is installed from the lock.
+  const fresh = !runtimeReady(locations());
+  if (fresh) {
+    privateDirectory(locations().runtimeDir);
     const npm = findExecutable('npm'); if (!npm) throw new RuntimeError('NPM_UNAVAILABLE');
     const root=prepareRuntimeManifest(locations());
     await runProcess(npm, ['ci', '--prefix', root, '--omit=dev', '--no-audit', '--no-fund'], { timeoutMs: 300000, env: inheritedEnv() });
@@ -83,7 +86,7 @@ async function installRuntime() {
   const version = await runProcess(process.execPath, [cliPath(), '--version'], { env: inheritedEnv() });
   if (version.trim() !== PASEO_VERSION || runtimeVersion() !== PASEO_VERSION) throw new RuntimeError('VERSION_MISMATCH');
   if (!fs.existsSync(path.join(packageRoot('server'), 'dist/server/web-ui/index.html'))) throw new RuntimeError('WEB_UI_MISSING');
-  markRuntimeReady(locations());
+  if (fresh) markRuntimeReady(locations());
   updateState({ installedVersion: PASEO_VERSION,installedRuntimeRevision:RUNTIME_REVISION });
 }
 async function choosePort(preferred) {
@@ -99,7 +102,8 @@ async function detectLaunchers({ installMissing = false } = {}) {
 async function writeConfig(port, launchers) {
   const loc = locations(); const file = path.join(loc.paseoHome, 'config.json');
   let config = {};
-  if (fs.existsSync(file)) { try { config = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { throw new RuntimeError('CONFIG_CORRUPT'); } }
+  const firstConfig = !fs.existsSync(file);
+  if (!firstConfig) { try { config = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { throw new RuntimeError('CONFIG_CORRUPT'); } }
   const providers = configureProviders(config.agents?.providers, launchers, loc, inheritedEnv());
   let name=config.daemon?.name;
   try {
@@ -112,7 +116,9 @@ async function writeConfig(port, launchers) {
     ...config, $schema: 'https://paseo.sh/schemas/paseo.config.v1.json', version: 1,
     daemon: { ...config.daemon, ...(name?{name}:{}), listen: `127.0.0.1:${port}`, hostnames: ['localhost', '127.0.0.1', '.localhost'], relay: { ...config.daemon?.relay, enabled: true }, mcp: { ...config.daemon?.mcp, enabled: true } },
     agents: { ...config.agents, providers, metadataGeneration: config.agents?.metadataGeneration || { providers: [] } },
-    features: { ...config.features, webUi: { ...config.features?.webUi, enabled: true } },
+    // Paseo downloads ~0.7 GiB of local speech models from github.com when the daemon starts unless dictation and voice mode
+    // are off. A NEW daemon home starts with both off; an existing home (or an explicit tenant choice) is never changed.
+    features: { ...config.features, ...(firstConfig ? { dictation: { enabled: false, ...config.features?.dictation }, voiceMode: { enabled: false, ...config.features?.voiceMode } } : {}), webUi: { ...config.features?.webUi, enabled: true } },
     log: { ...config.log, console: { level: 'warn' }, file: { level: 'warn', path: 'daemon.log', rotate: { maxSize: '5m', maxFiles: 2 } } },
   };
   const { savePersistedConfig } = await serverModule('dist/server/server/config.js');

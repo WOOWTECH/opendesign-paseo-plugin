@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertSafePath, RuntimeError } from '../vendor/pi-paseo/src/state.mjs';
+import { runtimeReady } from '../vendor/pi-paseo/src/runtime-layout.mjs';
 
 export const sourceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const providers = Object.freeze(['claude', 'codex', 'pi']);
@@ -24,6 +25,13 @@ export function runtimeContext({ dataDir, home, packageRoot = sourceRoot, env = 
   context.stateDir = path.join(context.dataDir, 'paseo');
   context.toolsDir = path.join(context.stateDir, 'packages');
   context.sourceStore = path.join(context.home, '.local/share/opendesign-paseo');
+  // Managed Paseo runtime shipped inside the image next to this package: <packageRoot>/managed-runtime, built at image
+  // build time. It is located from packageRoot - which the supervisor, runtime workers and the stdio MCP server all
+  // receive - and not from an environment variable that the child filter below would drop. Used in place and read-only
+  // once its receipt matches the lock this package ships: no npm, no copy onto the tenant volumes. Absent or not ready
+  // keeps the previous behaviour (lock-pinned `npm ci` into <data>/paseo/packages/runtime).
+  const bundled = path.join(context.packageRoot, 'managed-runtime');
+  context.runtimeDir = runtimeReady({ runtimeDir: bundled }) ? bundled : path.join(context.toolsDir, 'runtime');
   for (const file of [context.stateDir, context.toolsDir, path.join(context.packageRoot, 'src/runtime-worker.mjs')]) assertSafePath(file);
   // Web credentials and host controls never belong to a daemon/provider child.
   const childEnv = {};
@@ -46,7 +54,7 @@ export function runtimeContext({ dataDir, home, packageRoot = sourceRoot, env = 
   const claudeHome = providerDir('CLAUDE_CONFIG_DIR', '.claude');
   Object.assign(childEnv, {
     HOME: context.home, CODEX_HOME: codexHome, CLAUDE_CONFIG_DIR: claudeHome, PI_CODING_AGENT_DIR: agentDir, PI_AGENT_DATA_DIR: agentDir,
-    PI_PASEO_STATE_DIR: context.stateDir, PI_PASEO_RUNTIME_DIR: path.join(context.toolsDir, 'runtime'),
+    PI_PASEO_STATE_DIR: context.stateDir, PI_PASEO_RUNTIME_DIR: context.runtimeDir,
     PI_PASEO_FLOCK_HELPER: path.join(context.packageRoot, 'src/flock-helper.py'),
     PI_OAUTH_CALLBACK_HOST: '127.0.0.1',
     OPENDESIGN_PASEO_DATA_DIR: context.dataDir, OPENDESIGN_PASEO_PACKAGE_ROOT: context.packageRoot,
