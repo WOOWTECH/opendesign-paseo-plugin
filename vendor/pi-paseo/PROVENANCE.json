@@ -2,5 +2,13 @@
   "repository": "https://github.com/WOOWTECH/pi-paseo-plugin",
   "commit": "415e0aa37b6244a63270c216087325d4a944f8b7",
   "license": "MIT",
-  "scope": "runtime modules only; no Pi Web host installation"
+  "scope": "runtime modules only; no Pi Web host installation",
+  "local_patches": [
+    {
+      "file": "src/runtime.mjs",
+      "summary": "readModels refreshes the provider catalog once when the first answer is empty or an error (carried from upstream pull request 9)",
+      "upstream": "https://github.com/WOOWTECH/pi-paseo-plugin/pull/9",
+      "upstream_merge_commit": "33d3a8597e37"
+    }
+  ]
 }
