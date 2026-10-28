@@ -1,6 +1,6 @@
 {
   "name": "@woowtech/opendesign-cli-image",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "OpenDesign CLI image and optional native Paseo launcher service",
   "type": "module",
   "license": "MIT",
