@@ -52,6 +52,12 @@ export function runtimeContext({ dataDir, home, packageRoot = sourceRoot, env = 
   const agentDir = providerDir('PI_CODING_AGENT_DIR', '.pi/agent');
   const codexHome = providerDir('CODEX_HOME', '.codex');
   const claudeHome = providerDir('CLAUDE_CONFIG_DIR', '.claude');
+  // The provider CLIs refuse to start when their home variable names a directory that does not exist (Codex: "CODEX_HOME
+  // points to ..., but that path does not exist"), and a fresh PaaS home volume has none of them. All three were validated
+  // above, so create them now: every entry point (supervisor, workers, MCP server, auth flows) goes through this context.
+  for (const dir of [agentDir, codexHome, claudeHome]) {
+    try { fs.mkdirSync(dir, { recursive: true, mode: 0o700 }); } catch { throw new RuntimeError('INVALID_PROVIDER_HOME'); }
+  }
   Object.assign(childEnv, {
     HOME: context.home, CODEX_HOME: codexHome, CLAUDE_CONFIG_DIR: claudeHome, PI_CODING_AGENT_DIR: agentDir, PI_AGENT_DATA_DIR: agentDir,
     PI_PASEO_STATE_DIR: context.stateDir, PI_PASEO_RUNTIME_DIR: context.runtimeDir,

@@ -48,7 +48,7 @@ test('missing providers install exact pins in persistent user data, repair Pi be
   assert.equal(calls.filter(call => call.command === '/usr/bin/npm').length, 2);
   for (const provider of ['codex', 'pi']) assert.equal(fs.readlinkSync(path.join(context.home, '.local/bin', provider)), path.join(providerRelease(context, provider), 'node_modules/.bin', provider));
   assert.ok(providerEnvironment(context).PATH.includes(path.join(context.home, '.local/bin')));
-  assert.equal(fs.existsSync(path.join(context.home, '.claude')), false);
+  assert.deepEqual(fs.readdirSync(path.join(context.home, '.claude')), []); // the context creates the Claude home; the installer must not write into it
 });
 
 test('failed or nested Pi brace repair prevents the first Pi CLI invocation', async t => {

@@ -180,7 +180,7 @@ test('Claude official login accepts a protected authorization code through its C
 });
 
 test('existing Claude auth is never replaced; unknown providers stay redacted', async t => {
-  const context = fixture(t); fs.mkdirSync(context.env.CLAUDE_CONFIG_DIR); const authFile = path.join(context.env.CLAUDE_CONFIG_DIR, '.credentials.json'); fs.writeFileSync(authFile, 'Existing tenant file fixture');
+  const context = fixture(t); fs.mkdirSync(context.env.CLAUDE_CONFIG_DIR, { recursive: true }); const authFile = path.join(context.env.CLAUDE_CONFIG_DIR, '.credentials.json'); fs.writeFileSync(authFile, 'Existing tenant file fixture');
   const flow = createAuthFlow(context, { launch: () => assert.fail('must not launch when auth exists') });
   assert.equal((await flow.login('start', 'claude')).phase, 'credential_present'); assert.equal(fs.readFileSync(authFile, 'utf8'), 'Existing tenant file fixture');
   await assert.rejects(flow.login('start', 'PRIVATE_PROVIDER'), { code: 'INVALID_PROVIDER', message: 'INVALID_PROVIDER' });
