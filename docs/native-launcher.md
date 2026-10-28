@@ -24,6 +24,8 @@ Required inputs to `node bin/serve.mjs`:
 
 The runtime verifies both bundled manifest and skill against the packaged copies. A modified/missing launcher fails closed.
 
+The managed `@getpaseo/cli` runtime is built into the image at `<package root>/managed-runtime` (the image's build runs the package's own runtime layout code and `npm ci` once). When its receipt matches this package's lock it is used in place, read-only: first activation runs no `npm`, needs no registry access and writes no runtime to the data volume. Without it (a host that did not build it) the lock-pinned `npm ci` into `<data>/paseo/packages/runtime` is used (about 0.8 GB, registry TCP/443). Start-up speech: a new daemon home starts with `features.dictation` and `features.voiceMode` off, because Paseo otherwise downloads about 0.7 GiB of local speech models from github.com when the daemon starts.
+
 ## Native MCP API
 
 The host must implement `PUT /api/mcp/servers/:id` with body `{server, expected}`. `expected` is the full previous entry or `null` for a new one; `server: null` removes exactly the expected entry. The native configuration write queue compares and updates atomically, returning `409` for a stale expectation. Existing disabled state is preserved. The bridge never writes a complete server list, and cannot use a different entry's identity.
