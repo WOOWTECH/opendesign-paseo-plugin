@@ -29,11 +29,14 @@ npm ci --ignore-scripts
 npm test
 npm run check
 npm run check:launcher
+npm run check:vendor
 npm audit --omit=dev
 npm audit --omit=dev --prefix vendor/pi-paseo/runtime
 ```
 
 `npm test` 包含現行 CLI 映像契約、launcher、執行環境、初始化、安全與設定頁測試。其餘舊版 preload／overlay 測試屬於已停用架構，未列入現行測試命令。
+
+`vendor/pi-paseo/` 是 [pi-paseo-plugin](https://github.com/WOOWTECH/pi-paseo-plugin) 的具名分支，不是原樣複製：`vendor/pi-paseo/PROVENANCE.json` 以基準 commit 為準，逐檔記錄狀態（`identical`、`patched`、`added`）、雜湊與修改摘要，有改動的檔案同時列在 `local_patches`。改動任何 vendored 檔案時，同一個提交要更新該檔的 `vendoredSha256` 與摘要，否則離線的 `npm run check:vendor`（CI 會跑）會失敗。發版前可執行 `node scripts/check-vendor.mjs --upstream <pi-paseo-plugin 的 checkout>`，把每個檔案分類為 `IDENTICAL`、`PATCHED`、`UPSTREAM-AHEAD`（上游在基準之後又改過，需檢視是否移植）或 `UNDECLARED`；只有 `UNDECLARED` 會使指令失敗。
 
 ## 版本沿革
 

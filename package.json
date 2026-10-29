@@ -14,6 +14,7 @@
   "scripts": {
     "test": "node --test tests/image-preinstalled-clis.test.mjs && npm run test:launcher",
     "check": "node scripts/check-image-contract.mjs",
+    "check:vendor": "node scripts/check-vendor.mjs",
     "test:launcher": "node --test tests/launcher-*.test.mjs tests/runtime-*.test.mjs tests/host-security.test.mjs tests/host-onboarding.test.mjs tests/ui.test.mjs",
     "test:extended": "node --test tests/acceptance.test.mjs tests/acceptance-contract.test.mjs tests/acceptance-portable.test.mjs tests/host-overlay.test.mjs tests/host-plugin-transaction.test.mjs",
     "check:tests": "node scripts/check-test-wiring.mjs",
