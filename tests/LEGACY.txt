@@ -1,0 +1,14 @@
+# Test files that no test* npm script in package.json runs, each with the reason.
+# scripts/check-test-wiring.mjs (npm run check:tests) fails when a tests/*.test.mjs file is neither run by a
+# test* script nor listed here, and when a listed file is missing, has no reason, or is already run.
+# Format: <path> <reason>, one per line. Remove the entry when the file gets wired into a test* script.
+# Reasons come from running each file alone on origin/main 56fcee8 (Node v22.23.3, throwaway HOME, no Playwright).
+# plugin/SKILL.md and plugin/open-design.json were deleted in 574d814 with the retired preload/overlay design.
+tests/acceptance-browser.test.mjs needs python3 with Playwright and a Chromium binary: 5 of 8 tests fail without them (ModuleNotFoundError: No module named 'playwright'); only the verify-auth-browser CI job installs Playwright
+tests/host-adapter-lifecycle.test.mjs fails 11 of 11 with ENOENT plugin/SKILL.md (deleted in 574d814)
+tests/host-compatibility-profile.test.mjs fails 3 of 6 with ENOENT plugin/open-design.json (deleted in 574d814); one failing test also reads private host captures from a hard-coded absolute path and skips where they are absent
+tests/host-http.test.mjs fails 7 of 7 with ENOENT plugin/SKILL.md (deleted in 574d814)
+tests/host-native-installer.test.mjs fails to load with ENOENT plugin/open-design.json at import (deleted in 574d814); its tests also need private installer captures (OD_NATIVE_BASELINE_DIR) and skip without them
+tests/host-preload.test.mjs fails 1 of 2 with ENOENT plugin/open-design.json (deleted in 574d814)
+tests/host-release.test.mjs fails 13 of 13 with ENOENT plugin/open-design.json (deleted in 574d814)
+tests/ui-browser.test.mjs needs python3 with Playwright and a Chromium binary: its only test is skipped (exit 0) without them, so running it in a job without Playwright would check nothing
