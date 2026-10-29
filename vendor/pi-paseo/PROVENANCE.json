@@ -9,6 +9,144 @@
       "summary": "readModels refreshes the provider catalog once when the first answer is empty or an error (carried from upstream pull request 9)",
       "upstream": "https://github.com/WOOWTECH/pi-paseo-plugin/pull/9",
       "upstream_merge_commit": "33d3a8597e37"
+    },
+    {
+      "file": "runtime/package-lock.json",
+      "summary": "Lock regenerated for those overrides, so six package versions differ from the base: MCP SDK 1.32.2, body-parser 1.20.9 and 2.4.0, fast-uri 3.1.9, markdown-it 14.3.3 and qs 6.16.1."
+    },
+    {
+      "file": "runtime/package.json",
+      "summary": "Dependency overrides raised (MCP SDK 1.31.0 to 1.32.2, markdown-it 14.3.1 to 14.3.3) and new overrides added for body-parser 1.x and 2.x and fast-uri 3.1.9, with dependencies reformatted onto separate lines."
+    },
+    {
+      "file": "src/acceptance-workspace.mjs",
+      "summary": "Added file: usingAcceptanceWorkspace creates one workspace for an acceptance run, archives it afterwards and confirms it left the project's workspace list, recording the outcome as workspaceCleanup on the result row."
+    },
+    {
+      "file": "src/onboarding.mjs",
+      "summary": "withLock takes an optional helper and passes it on to withLockTransition so a caller can select the hash-pinned Python flock helper."
+    },
+    {
+      "file": "src/provider-reply.mjs",
+      "summary": "providerReplyError also classifies billing, insufficient-credit and payment-required replies as PROVIDER_QUOTA_EXHAUSTED, and the new providerTurnError maps a failed turn to a fixed error code without keeping its message."
+    },
+    {
+      "file": "src/safe-chat-result.mjs",
+      "summary": "Added file: safeChatResult wraps chatResult so a failed, timed-out or permission-blocked provider turn returns only a fixed status or code, never the provider's partial reply or error text."
+    },
+    {
+      "file": "src/state.mjs",
+      "summary": "withLockTransition can run a hash-pinned Python flock helper (the helper option or PI_PASEO_FLOCK_HELPER, sha256 f178c22c...) through /usr/bin/python3 instead of util-linux flock."
     }
-  ]
+  ],
+  "files": {
+    "LICENSE": {
+      "status": "identical",
+      "vendoredSha256": "1b05bfafc14067beabe8885c164528c122ebf545eabe97984b222fe377143a69",
+      "baseSha256": "1b05bfafc14067beabe8885c164528c122ebf545eabe97984b222fe377143a69",
+      "summary": "Byte-identical to the base commit."
+    },
+    "runtime/package-lock.json": {
+      "status": "patched",
+      "vendoredSha256": "ae1416f8ca854dac432e1eac0e057490bce581ab08c0d60851f3298bb8893d00",
+      "baseSha256": "b60170bb6826a8f442532bcab11edddd99301a457ad4e9a96269be9383191ba3",
+      "summary": "Lock regenerated for those overrides, so six package versions differ from the base: MCP SDK 1.32.2, body-parser 1.20.9 and 2.4.0, fast-uri 3.1.9, markdown-it 14.3.3 and qs 6.16.1."
+    },
+    "runtime/package.json": {
+      "status": "patched",
+      "vendoredSha256": "caffff6fd585e92067c557cfd58753d0a561c44a468828d61f53f68e2a285221",
+      "baseSha256": "b70bd73f02f0ea34437ee6a05bdba31d945a3d2da2ddc2c68c9e0a8efdd9d41c",
+      "summary": "Dependency overrides raised (MCP SDK 1.31.0 to 1.32.2, markdown-it 14.3.1 to 14.3.3) and new overrides added for body-parser 1.x and 2.x and fast-uri 3.1.9, with dependencies reformatted onto separate lines."
+    },
+    "src/acceptance-agent.mjs": {
+      "status": "identical",
+      "vendoredSha256": "bc73607738a1784c2e5cf3951cf867d139b7dd99afbadbaa357a042f329c0726",
+      "baseSha256": "bc73607738a1784c2e5cf3951cf867d139b7dd99afbadbaa357a042f329c0726",
+      "summary": "Byte-identical to the base commit."
+    },
+    "src/acceptance-workspace.mjs": {
+      "status": "added",
+      "vendoredSha256": "ffd29c3a038e509ad057c595e5f2a1b02b8ac6ae80cead4f453e71fef20a3398",
+      "baseSha256": null,
+      "summary": "Added file: usingAcceptanceWorkspace creates one workspace for an acceptance run, archives it afterwards and confirms it left the project's workspace list, recording the outcome as workspaceCleanup on the result row."
+    },
+    "src/chat-result.mjs": {
+      "status": "identical",
+      "vendoredSha256": "371d9a50951f18c1aeabca6a6359b5ca7c15a450e277f7191350cdc2e9c687dc",
+      "baseSha256": "371d9a50951f18c1aeabca6a6359b5ca7c15a450e277f7191350cdc2e9c687dc",
+      "summary": "Byte-identical to the base commit."
+    },
+    "src/health.mjs": {
+      "status": "identical",
+      "vendoredSha256": "4c7fa9210e53cb744082db932eeca4130d39178be9007205e88612b3c69fc2a7",
+      "baseSha256": "4c7fa9210e53cb744082db932eeca4130d39178be9007205e88612b3c69fc2a7",
+      "summary": "Byte-identical to the base commit."
+    },
+    "src/host-api.mjs": {
+      "status": "identical",
+      "vendoredSha256": "e05be048533837ada8947a6f698cfc14437d07917b9cfd787acc09634c9a79ab",
+      "baseSha256": "e05be048533837ada8947a6f698cfc14437d07917b9cfd787acc09634c9a79ab",
+      "summary": "Byte-identical to the base commit."
+    },
+    "src/onboarding.mjs": {
+      "status": "patched",
+      "vendoredSha256": "2b48bebf54d75d5541cb9cda95efc1b69b1309cb4e8601e6736b0051ee0b1307",
+      "baseSha256": "1c24894d8278f86bbe6baf1291225385891f18e9f1200e86a30fa014fad299a3",
+      "summary": "withLock takes an optional helper and passes it on to withLockTransition so a caller can select the hash-pinned Python flock helper."
+    },
+    "src/process.mjs": {
+      "status": "identical",
+      "vendoredSha256": "fb7f387d0b82be18d7e98ef7d23b733338c21c6eb80530350091de59527bd983",
+      "baseSha256": "fb7f387d0b82be18d7e98ef7d23b733338c21c6eb80530350091de59527bd983",
+      "summary": "Byte-identical to the base commit."
+    },
+    "src/provider-launchers.mjs": {
+      "status": "identical",
+      "vendoredSha256": "055be08b65176e58747e5688bdd3d844e40fced5a0219ecfd2d1a2149413d81d",
+      "baseSha256": "055be08b65176e58747e5688bdd3d844e40fced5a0219ecfd2d1a2149413d81d",
+      "summary": "Byte-identical to the base commit."
+    },
+    "src/provider-reply.mjs": {
+      "status": "patched",
+      "vendoredSha256": "aae4c5b392bc4dd24305863b179980b2bf9e683385b90fb31296607beecc00b0",
+      "baseSha256": "7ece481778b26eb6f6abeb5663de354e776cbc5d8e58bf62de5c62a0b6fb4172",
+      "summary": "providerReplyError also classifies billing, insufficient-credit and payment-required replies as PROVIDER_QUOTA_EXHAUSTED, and the new providerTurnError maps a failed turn to a fixed error code without keeping its message."
+    },
+    "src/runtime-layout.mjs": {
+      "status": "identical",
+      "vendoredSha256": "e6507302ac3436efeb8bf97bc6f99c5829c7a44a6a2c0f4990939b02d97731e8",
+      "baseSha256": "e6507302ac3436efeb8bf97bc6f99c5829c7a44a6a2c0f4990939b02d97731e8",
+      "summary": "Byte-identical to the base commit."
+    },
+    "src/runtime.mjs": {
+      "status": "patched",
+      "vendoredSha256": "0e90a6bde728d510baaa7aba5e9f8ae2a3812f8bc972725358680707591b4fd7",
+      "baseSha256": "a7a5f19768487de22d269d70855d1fce0bdc04cd239378036c12719181643b49",
+      "summary": "Four local changes: a ready runtime is verified but never reinstalled or rewritten, a new daemon home starts with dictation and voice mode off, readModels refreshes an empty or errored provider catalog once (upstream pull request 9), and the acceptance check runs inside a created-then-archived workspace using providerTurnError and safeChatResult."
+    },
+    "src/safe-chat-result.mjs": {
+      "status": "added",
+      "vendoredSha256": "c69fc3df0027136dcc6c3162dd72b01ec9365801f3e9d02fe1386b842570c2cf",
+      "baseSha256": null,
+      "summary": "Added file: safeChatResult wraps chatResult so a failed, timed-out or permission-blocked provider turn returns only a fixed status or code, never the provider's partial reply or error text."
+    },
+    "src/single-flight.mjs": {
+      "status": "identical",
+      "vendoredSha256": "a2008cad4fe2b1d77d051070adc5b2fe2104eea89d0ca31dea9b41b5bf0b82c4",
+      "baseSha256": "a2008cad4fe2b1d77d051070adc5b2fe2104eea89d0ca31dea9b41b5bf0b82c4",
+      "summary": "Byte-identical to the base commit."
+    },
+    "src/state.mjs": {
+      "status": "patched",
+      "vendoredSha256": "83b9de9963514dfbed7c14a9b619bbc4f4f50b18fb3424fd4269d25557b427ae",
+      "baseSha256": "e0232bbef2fbec24821377ba0dbce59489f9fff3cb14c1e0fb66c64aed1142d0",
+      "summary": "withLockTransition can run a hash-pinned Python flock helper (the helper option or PI_PASEO_FLOCK_HELPER, sha256 f178c22c...) through /usr/bin/python3 instead of util-linux flock."
+    },
+    "src/supervisor.mjs": {
+      "status": "identical",
+      "vendoredSha256": "46feb4988e8ce057bd3e24a8a457d51870f2cb4b589d9add4015ceebcdef1806",
+      "baseSha256": "46feb4988e8ce057bd3e24a8a457d51870f2cb4b589d9add4015ceebcdef1806",
+      "summary": "Byte-identical to the base commit."
+    }
+  }
 }
