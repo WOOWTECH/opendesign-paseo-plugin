@@ -14,6 +14,7 @@
   "scripts": {
     "test": "node --test tests/image-preinstalled-clis.test.mjs && npm run test:launcher",
     "check": "node scripts/check-image-contract.mjs",
+    "check:vendor": "node scripts/check-vendor.mjs",
     "test:launcher": "node --test tests/launcher-*.test.mjs tests/runtime-*.test.mjs tests/host-security.test.mjs tests/host-onboarding.test.mjs tests/ui.test.mjs",
     "start:paseo": "node bin/serve.mjs",
     "check:launcher": "node scripts/check-launcher-package.mjs"

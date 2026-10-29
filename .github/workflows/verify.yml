@@ -14,6 +14,7 @@ jobs:
       - run: npm test
       - run: npm run check:launcher
       - run: npm run check
+      - run: npm run check:vendor
       - run: docker build -f image/Dockerfile -t opendesign-cli-image:test .
   verify-launcher-node22:
     runs-on: ubuntu-latest
