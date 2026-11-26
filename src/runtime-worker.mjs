@@ -20,15 +20,13 @@ export async function executeRuntimeJob(context, { action, input = {} }, engine 
     return result;
   }
   if (action === 'models') return publicModels(await engine.listModels(input.provider), context.env);
+  if (action === 'target') return publicStatus(await engine.setConnectionTarget(input.target));
   if (action === 'acceptance') return publicAcceptance(await engine.acceptance(input));
   if (action === 'createchat') return publicChat(await engine.createChat(input), context.env);
   if (action === 'continue') return publicChat(await engine.continueChat(input), context.env);
   if (action === 'pair') {
-    const offer = await engine.pair();
-    let url;
-    try { url = new URL(offer.url); } catch { throw new RuntimeError('PAIRING_ORIGIN_INVALID'); }
-    if (url.protocol !== 'https:' || url.hostname !== 'app.paseo.sh' || url.port || url.username || url.password) throw new RuntimeError('PAIRING_ORIGIN_INVALID');
-    return { url: url.href, createdAt: new Date().toISOString() };
+    const offer = await engine.pair(input.target || 'paseo');
+    return { url: offer.url, createdAt: offer.createdAt || new Date().toISOString(), target:offer.target || input.target || 'paseo' };
   }
   throw new RuntimeError('INVALID_RUNTIME_ACTION');
 }

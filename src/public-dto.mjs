@@ -1,4 +1,5 @@
 import { providers, safeError } from './runtime-context.mjs';
+import { PASEO_VERSION, LEGACY_PASEO_VERSION } from '../vendor/pi-paseo/src/runtime-layout.mjs';
 
 const id = value => typeof value === 'string' && value.length <= 300 && /^[A-Za-z0-9_.:/@+~ \[\]-]+$/.test(value) ? value : null;
 const date = value => typeof value === 'string' && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : null;
@@ -8,7 +9,7 @@ const secretValue = /(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|
 export function redactText(value, env = {}) {
   let text = String(value ?? '').slice(0, 100000);
   for (const [key, secret] of Object.entries(env)) if (/(?:token|key|secret|password|cookie|authorization)/i.test(key) && typeof secret === 'string' && secret.length >= 6) text = text.split(secret).join('[redacted]');
-  return text.replace(/https?:\/\/app\.paseo\.sh\S*/gi, '[protected pairing link]')
+  return text.replace(/https?:\/\/(?:app\.paseo\.sh|smart\.woowtech\.io|smart\.apporo\.ai)\S*/gi, '[protected pairing link]')
     .replace(/https?:\/\/[^\s<>"']+(?:[?&#](?:token|key|secret|code|state|ticket|pairing|session)[^\s<>"']*)/gi, '[protected authorization link]')
     .replace(/\b(?:sk-[A-Za-z0-9_-]{16,}|Bearer\s+[A-Za-z0-9_.-]{12,})\b/g, '[redacted]')
     .replace(secretValue, '[redacted]')
@@ -37,7 +38,10 @@ export function publicAcceptance(value = {}) {
 
 export function publicStatus(value = {}) {
   const state = value.state || {};
-  return { schemaVersion: 1, version: value.version === '0.11.2' ? value.version : null, installed: value.installed === true,
+  const target = input => ['paseo', 'woowtech', 'apporo'].includes(input) ? input : null;
+  return { schemaVersion: 1, version: [PASEO_VERSION, LEGACY_PASEO_VERSION].includes(value.version) ? value.version : null, installed: value.installed === true,
+    connectionTarget: target(value.connectionTarget) || 'paseo', activeTarget: target(value.activeTarget),
+    targetPending: value.targetPending === true, restartRequired: value.restartRequired === true || value.phase === 'restart_required',
     phase: ['not_installed', 'installing', 'starting', 'running', 'stopped', 'disabled', 'error', 'restart_required'].includes(value.phase) ? value.phase : 'error',
     daemon: { owned: value.daemon?.owned === true, running: value.daemon?.running === true, reachable: value.daemon?.reachable === true, ready: value.daemon?.owned === true && value.daemon?.reachable === true && value.daemon?.running === true,
       relayEnabled: value.daemon?.relayEnabled === true, relayConnected: typeof value.daemon?.relayConnected === 'boolean' ? value.daemon.relayConnected : null,

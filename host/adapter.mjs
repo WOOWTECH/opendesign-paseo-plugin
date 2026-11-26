@@ -142,9 +142,11 @@ export function registerPaseoBridge(app,options){
    if(body.action==='disable'){invalidate();return json(res,schedule('disable',()=>manager.disable()),202);}
    if(body.action==='acceptance'){const {action,...input}=body;return json(res,schedule('acceptance',()=>manager.acceptance(input)),202);}
    if(body.action==='models')return json(res,await manager.models(body.provider));
+   if(body.action==='target')return json(res,await manager.configureTarget(body.target));
    if(body.action==='pair'){
-    const result=await manager.pair(),url=safePairUrl(result.url);if(!url)throw new BridgeError('PAIRING_UNAVAILABLE',502);
-    return json(res,{url,...(result.expiresAt?{expiresAt:result.expiresAt}:{})});
+    const target=body.target||'paseo';
+    const result=await manager.pair(target),url=safePairUrl(result.url,target);if(!url)throw new BridgeError('PAIRING_UNAVAILABLE',502);
+    return json(res,{url,target,...(result.expiresAt?{expiresAt:result.expiresAt}:{})});
    }
    if(body.action==='login')return json(res,await manager.login(body.step||'start',body.provider,body.code===undefined?{}:{code:body.code}));
    if(body.action==='onboarding')return json(res,await manager.ensureOnboarding());

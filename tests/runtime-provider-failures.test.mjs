@@ -8,7 +8,7 @@ import { safeChatResult } from '../vendor/pi-paseo/src/safe-chat-result.mjs';
 import { usingAcceptanceWorkspace } from '../vendor/pi-paseo/src/acceptance-workspace.mjs';
 import { usingAcceptanceAgent } from '../vendor/pi-paseo/src/acceptance-agent.mjs';
 import { acceptance, createChat, continueChat, locations } from '../vendor/pi-paseo/src/runtime.mjs';
-import { runtimeDirectory } from '../vendor/pi-paseo/src/runtime-layout.mjs';
+import { runtimeDirectory, RUNTIME_REVISION, RUNTIME_LOCK_SHA256, PASEO_VERSION } from '../vendor/pi-paseo/src/runtime-layout.mjs';
 import { publicAcceptance, publicChat } from '../src/public-dto.mjs';
 
 const privateFixture = 'private-provider-detail-fixture';
@@ -147,6 +147,8 @@ function runtimeFixture(t, failedTurn = 1) {
   t.after(() => { delete globalThis[key]; for (const [key, value] of Object.entries(previous)) if (value === undefined) delete process.env[key]; else process.env[key] = value; });
   const entry = path.join(runtimeDirectory(locations()), 'node_modules/@getpaseo/cli/dist/utils/client.js');
   fs.mkdirSync(path.dirname(entry), { recursive: true });
+  fs.writeFileSync(path.join(path.dirname(path.dirname(path.dirname(entry))),'package.json'),JSON.stringify({version:PASEO_VERSION}));
+  fs.writeFileSync(path.join(runtimeDirectory(locations()),'.pi-paseo-runtime.json'),JSON.stringify({revision:RUNTIME_REVISION,lockSha256:RUNTIME_LOCK_SHA256}));
   fs.writeFileSync(path.join(path.dirname(entry), 'package.json'), '{"type":"module"}');
   fs.writeFileSync(entry, `export async function connectToDaemon(){return globalThis[${JSON.stringify(key)}];}`);
   let turn = 0, marker = '', sent = 0;

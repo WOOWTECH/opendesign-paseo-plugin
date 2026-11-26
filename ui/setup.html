@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
-  <title>Paseo 安裝與連線設定 · OpenDesign</title>
+  <title>Agent Connect · OpenDesign</title>
   <link rel="stylesheet" href="/paseo/assets/setup.css">
   <script src="/paseo/assets/setup.js" defer></script>
 </head>
@@ -14,8 +14,8 @@
     <header class="page-header">
       <a href="/plugins" class="back-link">← 返回外掛</a>
       <p class="eyebrow">整合服務</p>
-      <h1>Paseo 安裝與連線設定</h1>
-      <p>在同一個地方管理服務、登入帳號、連接官方 App，並確認模型能正常對話。</p>
+      <h1>Agent Connect</h1>
+      <p>管理底層 Paseo 服務、登入帳號、連接所選用戶端，並確認模型能正常對話。</p>
     </header>
     <noscript><p class="notice">請啟用 JavaScript 後使用設定。此頁需要 OpenDesign 登入。</p></noscript>
     <p id="notice" class="notice" role="status" aria-live="polite" aria-atomic="true">正在讀取狀態…</p>
@@ -73,18 +73,26 @@
       </section>
     </section>
     <section class="card" aria-labelledby="pair-title">
-      <p class="eyebrow">3 · 官方 App</p><h2 id="pair-title">連接 Paseo App</h2>
-      <p>啟動服務後，建立配對連結，再到官方 App 完成配對。配對連結只暫時顯示在這個設定頁。</p>
+      <p class="eyebrow">3 · 用戶端</p><h2 id="pair-title">連接 Agent Connect 用戶端</h2>
+      <p>啟動底層 Paseo 服務後，選擇用戶端並建立專用配對連結。配對連結只暫時顯示在這個設定頁。</p>
+      <div class="fields client-fields">
+        <div><label for="client-target">用戶端</label><select id="client-target"><option value="paseo">Paseo</option><option value="woowtech">Woowtech Smart</option><option value="apporo">Apporo Smart</option></select></div>
+      </div>
+      <dl class="facts target-facts">
+        <div><dt>預定用戶端</dt><dd id="desired-target">Paseo</dd></div>
+        <div><dt>目前執行階段</dt><dd id="active-target">Paseo</dd></div>
+      </dl>
+      <p id="target-note" class="hint">用戶端與底層 Paseo 執行階段一致，可以建立配對連結。</p>
       <div class="actions">
-        <button id="pair" type="button" disabled>建立配對連結</button>
-        <a class="button-link" href="https://app.paseo.sh/" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">開啟官方 App</a>
+        <button id="pair" type="button" disabled>建立所選用戶端配對連結</button>
+        <a id="client-link" class="button-link" href="https://app.paseo.sh" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">開啟 Paseo</a>
       </div>
       <div id="pair-panel" class="transient" hidden>
         <p>請在 2 分鐘內開啟。離開或隱藏此頁會清除畫面上的配對資訊。</p>
-        <a id="pair-link" class="button-link primary" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">到官方 App 配對</a>
+        <a id="pair-link" class="button-link primary" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">到所選用戶端配對</a>
         <button id="pair-close" type="button">隱藏配對資訊</button>
       </div>
-      <p class="hint">建立連結不代表配對已完成；請以官方 App 的連線狀態為準。</p>
+      <p class="hint">建立連結不代表配對已完成；請以所選用戶端的連線狀態為準。Paseo 是底層執行階段。</p>
     </section>
     <section class="card" aria-labelledby="test-title">
       <p class="eyebrow">4 · 確認連線</p><h2 id="test-title">測試兩輪對話</h2>

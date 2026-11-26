@@ -18,6 +18,9 @@ function fixture(t, { truth, errors = {}, healsOnRefresh = false }) {
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const loc = { home: dir, agentDir: dir, stateDir: dir, runtimeDir: path.join(dir, 'runtime'), paseoHome: path.join(dir, 'daemon'), port: 6769 };
   fs.mkdirSync(loc.paseoHome);
+  const runtimeRoot=runtimeLayout.runtimeDirectory(loc),cliRoot=path.join(runtimeRoot,'node_modules/@getpaseo/cli');fs.mkdirSync(cliRoot,{recursive:true});
+  fs.writeFileSync(path.join(cliRoot,'package.json'),JSON.stringify({version:runtimeLayout.PASEO_VERSION}));
+  fs.writeFileSync(path.join(runtimeRoot,'.pi-paseo-runtime.json'),JSON.stringify({revision:runtimeLayout.RUNTIME_REVISION,lockSha256:runtimeLayout.RUNTIME_LOCK_SHA256}));
   const cache = Object.fromEntries(Object.keys(truth).map(provider => [provider, []])); // snapshot taken before login
   const calls = { refresh: [], list: 0 };
   const client = {

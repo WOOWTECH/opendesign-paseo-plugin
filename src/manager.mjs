@@ -12,7 +12,7 @@ import { startOwnedSupervisor, stopOwnedSupervisor } from './owned-supervisor.mj
 export { OnboardingNotStarted } from './onboarding.mjs';
 
 function publicOperation(record) {
-  if (!record || !['enable', 'disable', 'acceptance', 'login', 'onboarding', 'complete_onboarding', 'restore'].includes(record.action)) return null;
+  if (!record || !['enable', 'disable', 'acceptance', 'login', 'onboarding', 'complete_onboarding', 'restore', 'target'].includes(record.action)) return null;
   const interrupted = record.status === 'running' && processIdentity(record.pid) !== record.identity;
   return { id: /^[a-f0-9-]{36}$/.test(record.id || '') ? record.id : null, action: record.action,
     status: interrupted ? 'interrupted' : ['running', 'completed', 'error'].includes(record.status) ? record.status : 'error',
@@ -86,7 +86,8 @@ export function createManager(options, dependencies = {}) {
     const runtimeOperation = publicOperation(record.operation), currentAuthOperation = publicOperation(authOperation);
     const operation = runtimeOperation?.status === 'running' ? runtimeOperation : currentAuthOperation?.status === 'running' ? currentAuthOperation :
       Date.parse(currentAuthOperation?.startedAt || '') > Date.parse(runtimeOperation?.startedAt || '') ? currentAuthOperation : runtimeOperation || currentAuthOperation;
-    return { ...dto, desiredEnabled: record.desiredEnabled === true,
+    return { ...dto,
+      desiredEnabled: record.desiredEnabled === true,
       phase: record.desiredEnabled === false ? 'disabled' : dto.phase,
       onboarding: publicOnboarding(onboardingRecord(context)), operation, authOperation: currentAuthOperation,
       diagnosticCode: dto.diagnosticCode || (record.lastError ? safeError(record.lastError).code : null),
@@ -130,13 +131,17 @@ export function createManager(options, dependencies = {}) {
     validateProvider(provider);
     return coalesce('models:' + provider, async () => { requireEnabled(); return publicModels(await run('models', { provider }), context.env); });
   };
-  const pair = () => mutation('pair', async signal => {
+  const configureTarget = target => mutation('target', async signal => {
+    if(!['paseo','woowtech','apporo'].includes(target))throw new RuntimeError('INVALID_TARGET');
+    await run('target',{target},signal);patch({connectionTarget:target});return status();
+  },{operation:false});
+  const pair = (target = 'paseo') => mutation('pair', async signal => {
     requireEnabled();
-    const offer = await run('pair', {}, signal);
-    let url;
-    try { url = new URL(offer.url); } catch { throw new RuntimeError('PAIRING_ORIGIN_INVALID'); }
-    if (url.protocol !== 'https:' || url.hostname !== 'app.paseo.sh' || url.port || url.username || url.password) throw new RuntimeError('PAIRING_ORIGIN_INVALID');
-    return { url: url.href, createdAt: offer.createdAt || new Date().toISOString() };
+    if(!['paseo','woowtech','apporo'].includes(target))throw new RuntimeError('INVALID_TARGET');
+    const current=await run('status',{},signal);
+    if(current.targetPending||current.connectionTarget!==target||current.activeTarget!==target)throw new RuntimeError('RESTART_REQUIRED');
+    const offer = await run('pair', {target}, signal);
+    return { url: offer.url, createdAt: offer.createdAt || new Date().toISOString(), target };
   }, { operation: false });
   const acceptance = (input = {}) => mutation('acceptance', async signal => {
     requireEnabled();
@@ -221,7 +226,7 @@ export function createManager(options, dependencies = {}) {
     }, { timeoutMs: 15000, helper: context.env.PI_PASEO_FLOCK_HELPER })).catch(error => { throw safeError(error); });
     return shutdownPromise;
   };
-  return Object.freeze({ status, enable, disable, models, pair, acceptance, login, ensureOnboarding, restore, reconcile, createChat, continueChat, shutdown, cancelPending, cancelQueuedOperations,
+  return Object.freeze({ status, enable, disable, models, configureTarget, pair, acceptance, login, ensureOnboarding, restore, reconcile, createChat, continueChat, shutdown, cancelPending, cancelQueuedOperations,
     completeOnboarding: () => mutation('complete_onboarding', () => completeNativeOnboarding(context, callback)),
     dispose: shutdown });
 }

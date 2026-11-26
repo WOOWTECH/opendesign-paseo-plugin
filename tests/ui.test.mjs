@@ -78,6 +78,7 @@ function fixture(code = script, ingressPrefix = "") {
     doc.byId.set(match[3], element); doc.body.appendChild(element);
   }
   doc.byId.get('provider').value = 'claude';
+  doc.byId.get('client-target').value = 'paseo';
   const win = new Element('window', doc); win.location = { origin: 'https://protected.example' };
   const calls = [], responses = [], forbidden = () => { throw new Error('secret persistence/logging used'); };
   for (const name of ['localStorage', 'sessionStorage', 'history']) Object.defineProperty(win, name, { get: forbidden });
@@ -205,7 +206,7 @@ test('late aborted GET authorization failure cannot poison a newer mutation', as
   const stale = deferred(); f.responses.push(() => stale.promise); await f.click('refresh');
   const pair = deferred(); f.responses.push(() => pair.promise); await f.click('pair');
   stale.resolve(f.response({ error: 'old auth failure' }, 401)); await flush();
-  pair.resolve(f.response({ url: 'https://app.paseo.sh/#offer=NEW' })); await flush();
+  pair.resolve(f.response({ url: 'https://app.paseo.sh/#offer=NEW', target: 'paseo' })); await flush();
   assert.equal(f.$('pair-panel').hidden, false);
   assert.equal(f.$('login').disabled, false);
 });
@@ -247,7 +248,8 @@ test('automatic polling is bounded and resumes only through explicit refresh', a
 
 test('pairing is official-only, transient, expires and never enters request queries', async () => {
   const f = fixture(); await f.ready();
-  await f.click('pair', { url: 'https://app.paseo.sh/#offer=PRIVATE_PAIR' });
+  await f.click('pair', { url: 'https://app.paseo.sh/#offer=PRIVATE_PAIR', target: 'paseo' });
+  assert.deepEqual(f.calls.at(-1).json, { action: 'pair', target: 'paseo' });
   assert.equal(f.$('pair-panel').hidden, false);
   assert.match(f.$('pair-link').getAttribute('href'), /PRIVATE_PAIR/);
   assert.equal(f.$('pair-link').textContent.includes('PRIVATE_PAIR'), false);
@@ -257,9 +259,34 @@ test('pairing is official-only, transient, expires and never enters request quer
   assert.equal(f.$('pair-panel').hidden, true);
   assert.ok(f.calls.every(call => call.url === '/api/paseo-bridge'));
   for (const bad of ['https://app.paseo.sh.evil.example/#offer=x', 'https://evil.example/', 'https://user:pass@app.paseo.sh/#x', 'https://app.paseo.sh/?token=x', 'javascript:bad()']) {
-    await f.click('pair', { url: bad });
+    await f.click('pair', { url: bad, target: 'paseo' });
     assert.equal(f.$('pair-link').getAttribute('href'), null);
   }
+});
+
+test('client selection persists independently from provider login and gates pairing until active', async () => {
+  const f = fixture(); await f.ready();
+  f.$('provider').value = 'codex';
+  f.responses.push(f.response({ connectionTarget: 'woowtech', activeTarget: 'paseo', targetPending: true, restartRequired: true }));
+  f.$('client-target').value = 'woowtech'; f.$('client-target').emit('change'); await flush();
+  assert.deepEqual(f.calls.at(-1).json, { action: 'target', target: 'woowtech' });
+  assert.equal(f.$('provider').value, 'codex');
+  assert.equal(f.$('client-link').getAttribute('href'), 'https://smart.woowtech.io');
+  assert.equal(f.$('pair').disabled, true);
+  assert.match(f.$('target-note').textContent, /手動停止再啟動/);
+});
+
+test('target switch during pair clears late response and queues desired target update', async () => {
+  const f = fixture(); await f.ready();
+  const pair = deferred(); f.responses.push(() => pair.promise); await f.click('pair');
+  const configured = deferred(); f.responses.push(() => configured.promise);
+  f.$('client-target').value = 'apporo'; f.$('client-target').emit('change');
+  pair.resolve(f.response({ url: 'https://app.paseo.sh/#offer=LATE_SECRET', target: 'paseo' })); await flush();
+  assert.equal(f.$('pair-link').getAttribute('href'), null);
+  assert.doesNotMatch(f.doc.body.textContent, /LATE_SECRET/);
+  assert.deepEqual(f.calls.at(-1).json, { action: 'target', target: 'apporo' });
+  configured.resolve(f.response({ connectionTarget: 'apporo', activeTarget: 'paseo', targetPending: true })); await flush();
+  assert.equal(f.$('pair').disabled, true);
 });
 
 test('pair result arriving after page hide stays out of protected DOM', async () => {
@@ -267,7 +294,7 @@ test('pair result arriving after page hide stays out of protected DOM', async ()
   const pending = deferred(); f.responses.push(() => pending.promise);
   await f.click('pair');
   f.doc.hidden = true; f.doc.emit('visibilitychange');
-  pending.resolve(f.response({ url: 'https://app.paseo.sh/#offer=LATE_SECRET' })); await flush();
+  pending.resolve(f.response({ url: 'https://app.paseo.sh/#offer=LATE_SECRET', target: 'paseo' })); await flush();
   assert.equal(f.$('pair-link').getAttribute('href'), null);
   assert.equal(f.$('pair-panel').hidden, true);
   assert.doesNotMatch(f.doc.body.textContent, /LATE_SECRET/);
@@ -422,7 +449,7 @@ test('timeout settles UI and pagehide aborts, clears links and prevents late ren
   await f.click('pair');
   f.win.emit('pagehide');
   assert.equal(f.calls.at(-1).signal.aborted, true);
-  late.resolve(f.response({ url: 'https://app.paseo.sh/#secret=LATE' })); await flush();
+  late.resolve(f.response({ url: 'https://app.paseo.sh/#secret=LATE', target: 'paseo' })); await flush();
   assert.equal(f.$('pair-link').getAttribute('href'), null);
 });
 

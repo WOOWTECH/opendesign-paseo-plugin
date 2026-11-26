@@ -1,6 +1,9 @@
-const ACTIONS = new Set(['status','enable','disable','models','pair','acceptance','login','onboarding']);
+import {validatePairingOffer} from '../src/client-targets.mjs';
+
+const ACTIONS = new Set(['status','enable','disable','models','pair','target','acceptance','login','onboarding']);
 const PROVIDERS = new Set(['claude','codex','pi']);
-const CODES = new Set(['INVALID_ACTION','INVALID_BODY','INVALID_PROVIDER','INVALID_JSON','BODY_TOO_LARGE','CONTENT_TYPE_REQUIRED','UNTRUSTED_REQUEST','OPERATION_BUSY','PAIRING_UNAVAILABLE','LOGIN_REQUIRED','LOGIN_UNAVAILABLE','DAEMON_UNREACHABLE','ONBOARDING_UNCERTAIN','HOST_NOT_COMPATIBLE']);
+const TARGETS = new Set(['paseo','woowtech','apporo']);
+const CODES = new Set(['INVALID_ACTION','INVALID_BODY','INVALID_PROVIDER','INVALID_JSON','BODY_TOO_LARGE','CONTENT_TYPE_REQUIRED','UNTRUSTED_REQUEST','OPERATION_BUSY','PAIRING_UNAVAILABLE','LOGIN_REQUIRED','LOGIN_UNAVAILABLE','DAEMON_UNREACHABLE','ONBOARDING_UNCERTAIN','HOST_NOT_COMPATIBLE','RUNTIME_NATIVE_UNAVAILABLE']);
 export class BridgeError extends Error {
  constructor(code,status=400){super(code);this.code=code;this.status=status;}
 }
@@ -31,11 +34,14 @@ export async function readBody(req,maxBytes=16384){
 export function validateAction(body){
  if(!body||typeof body!=='object'||Array.isArray(body)||!ACTIONS.has(body.action))throw new BridgeError('INVALID_ACTION');
  const fields=new Set(['action']);
+ if(['pair','target'].includes(body.action))fields.add('target');
  if(['models','login'].includes(body.action))fields.add('provider');
  if(body.action==='login'){fields.add('step');fields.add('code');}
  if(body.action==='acceptance')for(const key of ['providers','models','modes','timeoutMs'])fields.add(key);
  if(Object.keys(body).some(key=>!fields.has(key)))throw new BridgeError('INVALID_BODY');
  if(fields.has('provider')&&!PROVIDERS.has(body.provider))throw new BridgeError('INVALID_PROVIDER');
+ if(body.target!==undefined&&!TARGETS.has(body.target))throw new BridgeError('INVALID_BODY');
+ if(body.action==='target'&&!TARGETS.has(body.target))throw new BridgeError('INVALID_BODY');
  if(body.step!==undefined&&!['start','status','cancel','complete'].includes(body.step))throw new BridgeError('INVALID_BODY');
  if(body.code!==undefined&&(typeof body.code!=='string'||body.code.length>2048||/[\u0000-\u001f]/.test(body.code)))throw new BridgeError('INVALID_BODY');
  if(body.providers!==undefined&&(!Array.isArray(body.providers)||!body.providers.length||body.providers.length>3||body.providers.some(value=>!PROVIDERS.has(value))))throw new BridgeError('INVALID_PROVIDER');
@@ -45,9 +51,8 @@ export function validateAction(body){
  if(body.timeoutMs!==undefined&&(!Number.isFinite(body.timeoutMs)||body.timeoutMs<10000||body.timeoutMs>600000))throw new BridgeError('INVALID_BODY');
  return {...body};
 }
-export function safePairUrl(value){
- if(typeof value!=='string'||value.length>8192)return null;
- try{const u=new URL(value);return u.origin==='https://app.paseo.sh'&&!u.username&&!u.password?u.href:null;}catch{return null;}
+export function safePairUrl(value,target='paseo'){
+ try{return validatePairingOffer(value,target);}catch{return null;}
 }
 export function publicError(error){
  const code=CODES.has(error?.code)?error.code:'OPERATION_FAILED';

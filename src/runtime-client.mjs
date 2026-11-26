@@ -4,7 +4,7 @@ import { RuntimeError } from '../vendor/pi-paseo/src/state.mjs';
 import { safeError } from './runtime-context.mjs';
 import { providerEnvironment } from './provider-install.mjs';
 
-export const budgets = Object.freeze({ status: 15000, diagnose: 175000, models: 175000, pair: 25000, enable: 1300000, disable: 45000, acceptance: 1300000, createchat: 660000, continue: 660000 });
+export const budgets = Object.freeze({ status: 15000, diagnose: 175000, models: 175000, pair: 25000, target: 25000, enable: 1300000, disable: 90000, acceptance: 1300000, createchat: 660000, continue: 660000 });
 
 export function callRuntime(context, action, input = {}, { signal, timeoutMs = budgets[action] || 15000 } = {}) {
   return new Promise((resolve, reject) => {

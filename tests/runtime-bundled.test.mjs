@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { runtimeContext, sourceRoot } from '../src/runtime-context.mjs';
-import { prepareRuntimeManifest, markRuntimeReady, runtimeReady, runtimeDirectory } from '../vendor/pi-paseo/src/runtime-layout.mjs';
+import { prepareRuntimeManifest, markRuntimeReady, runtimeReady, runtimeDirectory, PASEO_VERSION } from '../vendor/pi-paseo/src/runtime-layout.mjs';
 
 // The image builds the managed Paseo runtime at build time into <packageRoot>/managed-runtime.
 // Everything below is a fixture: no npm, no network, no daemon.
@@ -20,7 +20,7 @@ function bake(directory) {
   const loc = { runtimeDir: directory };
   const release = prepareRuntimeManifest(loc);
   fs.mkdirSync(path.join(release, 'node_modules/@getpaseo/cli'), { recursive: true });
-  fs.writeFileSync(path.join(release, 'node_modules/@getpaseo/cli/package.json'), JSON.stringify({ name: '@getpaseo/cli', version: '0.11.2' }));
+  fs.writeFileSync(path.join(release, 'node_modules/@getpaseo/cli/package.json'), JSON.stringify({ name: '@getpaseo/cli', version: PASEO_VERSION }));
   markRuntimeReady(loc);
   assert.equal(runtimeReady(loc), true);
   return loc;

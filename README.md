@@ -1,16 +1,18 @@
-# OpenDesign CLI image + Paseo launcher
+# OpenDesign CLI image + Agent Connect
 
-本 repo 提供預裝 Claude Code、Codex、Pi 的 OpenDesign 映像，以及可選的 **Paseo 原生外掛入口**。
+本 repo 提供預裝 Claude Code、Codex、Pi 的 OpenDesign 映像，以及使用 Paseo 執行環境的 **Agent Connect 原生外掛入口**。
 
-## Paseo 的 GUI 操作
+本分支的 `0.3.0-rc.1` 是升級驗收候選：目標為官方 Paseo CLI `0.17.5`，提供 Paseo、Woowtech Smart、Apporo Smart 三個明確的連線目標。版本、配對與實際對話的驗證分開記錄；候選分支不代表既有部署已更新。操作方式見 [Agent Connect 配對與升級](docs/agent-connect.md)。
+
+## Agent Connect 的 GUI 操作
 
 支援此整合的主機啟用後：
 
 1. 進入 OpenDesign **Plugins（外掛）→ Expert suites → Personal**。目前英文介面將已安裝的原生入口放在 `Personal` 分頁。
-2. 在 **Paseo** 卡片按 **Open**，以新分頁開啟同網域的「Paseo 安裝與連線設定」頁。
+2. 在 **Agent Connect** 卡片按 **Open**，以新分頁開啟同網域的設定頁。
 3. 查看安裝進度與現有 Claude Code、Codex、Pi 帳號狀態；尚未登入時按 **登入與帳號設定**，依[GUI 帳號連結](docs/native-launcher.md#gui-帳號連結)完成官方授權。
 4. 選擇服務、模型與模式，執行兩輪對話測試。
-5. 產生配對連結，在官方 Paseo App 完成連接後開始對話。
+5. 選擇 Paseo、Woowtech Smart 或 Apporo Smart；若執行中切換目標，先明確停止、再啟動。重新產生該目標的配對連結，在選定的 App 完成連接後開始對話。
 
 鎖定版本的 Paseo 執行套件由映像在建置時內建於 `<套件根目錄>/managed-runtime`，首次啟用不執行 npm、不需要套件庫連線；未內建的主機才會下載該執行套件（約 0.8 GB）。新安裝預設關閉本機語音（`features.dictation`／`features.voiceMode`），避免 daemon 啟動時從 github.com 下載約 0.7 GiB 語音模型。首次啟用會建立初始化對話；已有屬於此整合的對話會被沿用。手動停止會持久保存，重啟 OD 不會擅自再次啟用。
 
