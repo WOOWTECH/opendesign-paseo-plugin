@@ -114,6 +114,7 @@ function fixture(code = script, ingressPrefix = "") {
 }
 const current = (extra = {}) => ({
   schemaVersion: 1, version: '0.11.2', phase: 'running', desiredEnabled: true,
+  connectionTarget: 'paseo', activeTarget: 'paseo', targetPending: false,
   daemon: { running: true, reachable: true, relayEnabled: true },
   providers: ['claude', 'codex', 'pi'].map(provider => ({ provider, status: 'ready', authentication: 'chat_verified', credentialPresent: true })),
   onboarding: { url: '/project/project1?conversation=conversation1' }, operation: null,
@@ -274,6 +275,19 @@ test('client selection persists independently from provider login and gates pair
   assert.equal(f.$('client-link').getAttribute('href'), 'https://smart.woowtech.io');
   assert.equal(f.$('pair').disabled, true);
   assert.match(f.$('target-note').textContent, /手動停止再啟動/);
+});
+
+test('a stopped daemon has no active client target and cannot advertise pairing readiness', async () => {
+  const f = fixture();
+  await f.ready(current({ phase: 'disabled', desiredEnabled: false, activeTarget: null,
+    daemon: { running: false, reachable: false, relayEnabled: false } }));
+  assert.equal(f.$('active-target').textContent, '尚未運行');
+  assert.match(f.$('target-note').textContent, /下次手動啟動/);
+  assert.equal(f.$('pair').disabled, true);
+  f.responses.push(f.response({ connectionTarget: 'apporo', activeTarget: null, targetPending: false }));
+  f.$('client-target').value = 'apporo'; f.$('client-target').emit('change'); await flush();
+  assert.equal(f.$('active-target').textContent, '尚未運行');
+  assert.match(f.$('target-note').textContent, /下次手動啟動/);
 });
 
 test('target switch during pair clears late response and queues desired target update', async () => {

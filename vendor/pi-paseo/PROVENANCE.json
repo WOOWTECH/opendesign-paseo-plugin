@@ -6,7 +6,7 @@
   "local_patches": [
     {
       "file": "src/runtime.mjs",
-      "summary": "readModels refreshes the provider catalog once when the first answer is empty or an error (carried from upstream pull request 9) Alpine fallback requires a musl-compatible native runtime and delegates its verified build to the packaged helper; absent build tools fail with RUNTIME_NATIVE_UNAVAILABLE.",
+      "summary": "readModels refreshes the provider catalog once when the first answer is empty or an error (carried from upstream pull request 9) Alpine fallback requires a musl-compatible native runtime and delegates its verified build to the packaged helper; absent build tools fail with RUNTIME_NATIVE_UNAVAILABLE. Pairing offers are transient return values; legacy private offer files are removed. Runtime installation disables all dependency lifecycle scripts except the explicitly reviewed node-pty rebuild and executable checks.",
       "upstream": "https://github.com/WOOWTECH/pi-paseo-plugin/pull/9",
       "upstream_merge_commit": "33d3a8597e37"
     },
@@ -134,9 +134,9 @@
     },
     "src/runtime.mjs": {
       "status": "patched",
-      "vendoredSha256": "c9ee299e68b1b64fa39ec35e07983323221d36d08f03d8ad7d2b3ab6a67f1f1b",
+      "vendoredSha256": "d5218e4c860d9f52dc82707ff6dbced563f86bfd4a7be2011643f538d58a7201",
       "baseSha256": "a7a5f19768487de22d269d70855d1fce0bdc04cd239378036c12719181643b49",
-      "summary": "0.17.5 lifecycle migration with versioned legacy control, preserved identity/providers/configuration, explicit connection-target switching, private strict pairing, owned PID-lock lifecycle and existing OpenDesign acceptance protections. Alpine fallback requires a musl-compatible native runtime and delegates its verified build to the packaged helper; absent build tools fail with RUNTIME_NATIVE_UNAVAILABLE."
+      "summary": "0.17.5 lifecycle migration with versioned legacy control, preserved identity/providers/configuration, explicit connection-target switching, private strict pairing, owned PID-lock lifecycle and existing OpenDesign acceptance protections. Alpine fallback requires a musl-compatible native runtime and delegates its verified build to the packaged helper; absent build tools fail with RUNTIME_NATIVE_UNAVAILABLE. Pairing offers are transient return values; legacy private offer files are removed. Runtime installation disables all dependency lifecycle scripts except the explicitly reviewed node-pty rebuild and executable checks."
     },
     "src/safe-chat-result.mjs": {
       "status": "added",

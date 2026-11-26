@@ -10,20 +10,21 @@ const runtimeDir = process.argv[2];
 if (process.argv.length !== 3 || !runtimeDir || !path.isAbsolute(runtimeDir)) throw new Error('ABSOLUTE_RUNTIME_DIRECTORY_REQUIRED');
 const loc = { runtimeDir };
 const root = prepareRuntimeManifest(loc);
-const install = spawnSync('npm', ['ci', '--prefix', root, '--omit=dev', '--no-audit', '--no-fund'], {
+const install = spawnSync('npm', ['ci', '--prefix', root, '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], {
   stdio: 'pipe', encoding: 'utf8', timeout: 600000, maxBuffer: 4 * 1024 * 1024,
 });
 if (install.status !== 0) throw new Error('LOCKED_RUNTIME_INSTALL_FAILED');
 const musl = process.platform === 'linux' && !process.report.getReport().header.glibcVersionRuntime;
-if (musl) {
+{
   // node-pty ships a linux-x64 glibc prebuild under a libc-neutral directory.
   // It loads through gcompat on Alpine but crashes at the first PTY spawn.
   // Its supported installer flag removes that prebuild and builds for musl.
-  const rebuild = spawnSync('npm', ['rebuild', '--prefix', root, 'node-pty', '--no-audit', '--no-fund'], {
-    env: { ...process.env, npm_config_build_from_source: 'true' },
+  // This is the only reviewed dependency whose lifecycle scripts may run.
+  const rebuild = spawnSync('npm', ['rebuild', '--prefix', root, 'node-pty', '--ignore-scripts=false', '--no-audit', '--no-fund'], {
+    env: { ...process.env, ...(musl ? { npm_config_build_from_source: 'true' } : {}) },
     stdio: 'pipe', encoding: 'utf8', timeout: 600000, maxBuffer: 4 * 1024 * 1024,
   });
-  if (rebuild.status !== 0) throw new Error('MUSL_NODE_PTY_BUILD_FAILED');
+  if (rebuild.status !== 0) throw new Error('NATIVE_NODE_PTY_BUILD_FAILED');
 }
 for (const name of ['cli', 'client', 'server', 'protocol']) {
   if (JSON.parse(fs.readFileSync(path.join(root, 'node_modules/@getpaseo', name, 'package.json'))).version !== PASEO_VERSION) throw new Error('RUNTIME_PACKAGE_VERSION_MISMATCH');

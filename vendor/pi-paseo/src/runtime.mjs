@@ -13,7 +13,7 @@ import { safeChatResult as chatResult } from './safe-chat-result.mjs';
 import { usingAcceptanceWorkspace } from './acceptance-workspace.mjs';
 import {singleFlight,daemonStatusWindow} from './single-flight.mjs';
 import {usingAcceptanceAgent} from './acceptance-agent.mjs';
-import {runtimeDirectory,legacyRuntimeDirectory,runtimeReady,legacyRuntimeReady,prepareRuntimeManifest,markRuntimeReady,RUNTIME_REVISION,LEGACY_RUNTIME_REVISION,PASEO_VERSION} from './runtime-layout.mjs';
+import {runtimeDirectory,legacyRuntimeDirectory,runtimeReady,legacyRuntimeReady,markRuntimeReady,RUNTIME_REVISION,LEGACY_RUNTIME_REVISION,PASEO_VERSION} from './runtime-layout.mjs';
 import {connectionTarget,readConnectionTarget,targetEnvironment,targetConfiguration,validatePairingOffer} from './connection-targets.mjs';
 export { locations, readState, updateState } from './state.mjs';
 export { PASEO_VERSION } from './runtime-layout.mjs';
@@ -35,6 +35,10 @@ async function cli(args, options = {}, root = runtimeDirectory(locations())) {
   try { return JSON.parse(result); } catch { throw new RuntimeError('INVALID_COMMAND_OUTPUT'); }
 }
 function ownerFile() { return path.join(locations().paseoHome, '.pi-paseo-owner.json'); }
+function clearPairingMaterial() {
+  try { fs.unlinkSync(path.join(locations().stateDir, 'pairing.private.json')); }
+  catch (error) { if (error?.code !== 'ENOENT') throw new RuntimeError('RUNTIME_FAILED'); }
+}
 function ensureOwnedHome() {
   const loc = locations(); const state = readState().installationId ? readState() : updateState({ phase: 'installing' });
   if (fs.existsSync(ownerFile())) {
@@ -93,15 +97,10 @@ async function installRuntime() {
     privateDirectory(locations().runtimeDir);
     const npm = findExecutable('npm'); if (!npm) throw new RuntimeError('NPM_UNAVAILABLE');
     const musl = process.platform === 'linux' && !process.report.getReport().header.glibcVersionRuntime;
-    if (musl) {
-      if (!findExecutable('g++') || !findExecutable('make')) throw new RuntimeError('RUNTIME_NATIVE_UNAVAILABLE');
-      const helper=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../../scripts/prepare-managed-runtime.mjs');
-      try { await runProcess(process.execPath,[helper,locations().runtimeDir],{timeoutMs:600000,env:inheritedEnv()}); }
-      catch { throw new RuntimeError('RUNTIME_NATIVE_UNAVAILABLE'); }
-    } else {
-      const root=prepareRuntimeManifest(locations());
-      await runProcess(npm, ['ci', '--prefix', root, '--omit=dev', '--no-audit', '--no-fund'], { timeoutMs: 300000, env: inheritedEnv() });
-    }
+    if (musl && (!findExecutable('g++') || !findExecutable('make'))) throw new RuntimeError('RUNTIME_NATIVE_UNAVAILABLE');
+    const helper=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../../scripts/prepare-managed-runtime.mjs');
+    try { await runProcess(process.execPath,[helper,locations().runtimeDir],{timeoutMs:600000,env:inheritedEnv()}); }
+    catch (error) { if(musl)throw new RuntimeError('RUNTIME_NATIVE_UNAVAILABLE');throw error; }
   }
   const version = await runProcess(process.execPath, [cliPath(), '--version'], { env: inheritedEnv() });
   if (version.trim() !== PASEO_VERSION || runtimeVersion() !== PASEO_VERSION) throw new RuntimeError('VERSION_MISMATCH');
@@ -162,7 +161,7 @@ async function withClient(fn, timeoutMs = 30000, root = controlRoot()) {
 }
 export async function activate(options = {}) {
   return withRuntimeLock(async () => {
-    ensureOwnedHome(); updateState({ desiredEnabled: true, phase: 'installing', lastError: null });
+    ensureOwnedHome(); clearPairingMaterial(); updateState({ desiredEnabled: true, phase: 'installing', lastError: null });
     try {
       if (Number(process.versions.node.split('.')[0]) < 22) throw new RuntimeError('NODE_VERSION_UNSUPPORTED');
       await installRuntime();
@@ -199,7 +198,7 @@ export async function activate(options = {}) {
 }
 export async function deactivate() {
   return withRuntimeLock(async () => {
-    updateState({ desiredEnabled: false });
+    clearPairingMaterial(); updateState({ desiredEnabled: false });
     const root=controlRoot(),instance = await currentInstance(root);
     if (instance) {
       await verifyInstanceOwnership(instance,root);
@@ -237,7 +236,7 @@ async function readStatus() {
   }
   const phase = state.phase === 'running' && !daemon.running ? 'stopped' : state.phase || 'not_installed';
   const connectionTarget=readConnectionTarget(locations()),activeTarget=daemon.running?(state.activeTarget||'paseo'):null,targetPending=daemon.running&&activeTarget!==connectionTarget;
-  return { installed, version: installed ? PASEO_VERSION : null, enabled: state.desiredEnabled === true, phase:targetPending?'restart_required':phase, daemon, providers, chatVerified: state.acceptance?.passed === true, pairingAvailable: fs.existsSync(path.join(locations().stateDir, 'pairing.private.json')), diagnosticCode:targetPending?'RESTART_REQUIRED':diagnosticCode, connectionTarget, activeTarget, targetPending, restartRequired:targetPending||diagnosticCode==='RESTART_REQUIRED', state };
+  return { installed, version: installed ? PASEO_VERSION : null, enabled: state.desiredEnabled === true, phase:targetPending?'restart_required':phase, daemon, providers, chatVerified: state.acceptance?.passed === true, pairingAvailable: daemon.reachable&&!targetPending&&diagnosticCode!=='RESTART_REQUIRED', diagnosticCode:targetPending?'RESTART_REQUIRED':diagnosticCode, connectionTarget, activeTarget, targetPending, restartRequired:targetPending||diagnosticCode==='RESTART_REQUIRED', state };
 }
 export async function diagnose() {
   const snapshot = await status(); const launchers = await detectLaunchers();
@@ -284,11 +283,12 @@ export async function setConnectionTarget(target) {
     atomicJson(file,{...previous,connectionTarget:selected,target:selected});
     const root=controlRoot(),instance=await currentInstance(root),active=instance?(readState().activeTarget||'paseo'):null;
     updateState({targetPending:Boolean(instance&&active!==selected),pairingCreatedAt:null,relayVerification:null});
-    try{fs.unlinkSync(path.join(loc.stateDir,'pairing.private.json'));}catch(error){if(error?.code!=='ENOENT')throw new RuntimeError('RUNTIME_FAILED');}
+    clearPairingMaterial();
     return status();
   });
 }
 export async function pair(target = 'paseo') {
+  clearPairingMaterial();
   const requested=connectionTarget(target).id,result = await status();
   if(requested!==result.connectionTarget||result.targetPending||requested!==result.activeTarget)throw new RuntimeError('RESTART_REQUIRED');
   if (!result.daemon.reachable) throw new RuntimeError('DAEMON_UNREACHABLE');
@@ -296,7 +296,6 @@ export async function pair(target = 'paseo') {
   const offer = await cli(['daemon', 'pair', '--relay'], { timeoutMs: 15000 },root);
   if (!offer.url || !offer.relayEnabled) throw new RuntimeError('PAIRING_UNAVAILABLE');
   const pairing = { url: validatePairingOffer(offer.url,requested), createdAt: new Date().toISOString(), target:requested };
-  atomicJson(path.join(locations().stateDir, 'pairing.private.json'), pairing);
   updateState({ pairingCreatedAt: pairing.createdAt });
   return pairing;
 }

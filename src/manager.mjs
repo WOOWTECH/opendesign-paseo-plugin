@@ -8,6 +8,7 @@ import { ensureNativeOnboarding, completeNativeOnboarding, onboardingRecord, pub
 import { callRuntime } from './runtime-client.mjs';
 import { createAuthFlow } from './auth-flow.mjs';
 import { startOwnedSupervisor, stopOwnedSupervisor } from './owned-supervisor.mjs';
+import { CONNECTION_TARGETS } from './client-targets.mjs';
 
 export { OnboardingNotStarted } from './onboarding.mjs';
 
@@ -132,12 +133,12 @@ export function createManager(options, dependencies = {}) {
     return coalesce('models:' + provider, async () => { requireEnabled(); return publicModels(await run('models', { provider }), context.env); });
   };
   const configureTarget = target => mutation('target', async signal => {
-    if(!['paseo','woowtech','apporo'].includes(target))throw new RuntimeError('INVALID_TARGET');
+    if(!CONNECTION_TARGETS.some(entry=>entry.id===target))throw new RuntimeError('INVALID_TARGET');
     await run('target',{target},signal);patch({connectionTarget:target});return status();
   },{operation:false});
   const pair = (target = 'paseo') => mutation('pair', async signal => {
     requireEnabled();
-    if(!['paseo','woowtech','apporo'].includes(target))throw new RuntimeError('INVALID_TARGET');
+    if(!CONNECTION_TARGETS.some(entry=>entry.id===target))throw new RuntimeError('INVALID_TARGET');
     const current=await run('status',{},signal);
     if(current.targetPending||current.connectionTarget!==target||current.activeTarget!==target)throw new RuntimeError('RESTART_REQUIRED');
     const offer = await run('pair', {target}, signal);

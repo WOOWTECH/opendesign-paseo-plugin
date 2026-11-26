@@ -1,8 +1,8 @@
-import {validatePairingOffer} from '../src/client-targets.mjs';
+import {CONNECTION_TARGETS,validatePairingOffer} from '../src/client-targets.mjs';
 
 const ACTIONS = new Set(['status','enable','disable','models','pair','target','acceptance','login','onboarding']);
 const PROVIDERS = new Set(['claude','codex','pi']);
-const TARGETS = new Set(['paseo','woowtech','apporo']);
+const TARGETS = new Set(CONNECTION_TARGETS.map(target=>target.id));
 const CODES = new Set(['INVALID_ACTION','INVALID_BODY','INVALID_PROVIDER','INVALID_JSON','BODY_TOO_LARGE','CONTENT_TYPE_REQUIRED','UNTRUSTED_REQUEST','OPERATION_BUSY','PAIRING_UNAVAILABLE','LOGIN_REQUIRED','LOGIN_UNAVAILABLE','DAEMON_UNREACHABLE','ONBOARDING_UNCERTAIN','HOST_NOT_COMPATIBLE','RUNTIME_NATIVE_UNAVAILABLE']);
 export class BridgeError extends Error {
  constructor(code,status=400){super(code);this.code=code;this.status=status;}

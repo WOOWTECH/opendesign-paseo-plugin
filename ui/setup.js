@@ -108,9 +108,9 @@
   function renderTargetStatus() {
     if (!status) return;
     const desired = clientTargets[status.desiredTarget] || clientTargets.paseo;
-    const active = clientTargets[status.activeTarget] || clientTargets.paseo;
+    const active = clientTargets[status.activeTarget];
     text("desired-target", desired.label);
-    text("active-target", active.label + "（底層 Paseo 執行階段）");
+    text("active-target", active ? active.label + "（底層 Paseo 執行階段）" : "尚未運行");
     const mismatched = status.activeTarget !== selectedTarget() || status.targetPending;
     text("target-note", mismatched && status.daemon.running
       ? "用戶端設定已儲存。請手動停止再啟動底層 Paseo 服務，生效後才能建立配對連結。"
@@ -253,7 +253,7 @@
       phase: clean(dto.phase), desiredEnabled: dto.desiredEnabled === true,
       daemon: { running: dto.daemon.running === true, reachable: dto.daemon.reachable, relayEnabled: dto.daemon.relayEnabled === true },
       desiredTarget: Object.hasOwn(clientTargets, dto.connectionTarget) ? dto.connectionTarget : "paseo",
-      activeTarget: Object.hasOwn(clientTargets, dto.activeTarget) ? dto.activeTarget : "paseo",
+      activeTarget: Object.hasOwn(clientTargets, dto.activeTarget) ? dto.activeTarget : null,
       targetPending: dto.targetPending === true || dto.restartRequired === true,
       operation: { pending: dto.operation?.pending === true || ["queued", "running"].includes(dto.operation?.status) || pendingOperation !== null },
     };
@@ -389,8 +389,8 @@
         if (dto.connectionTarget !== extra.target) throw new Error("INVALID_RESPONSE");
         if (status) {
           status.desiredTarget = extra.target;
-          status.activeTarget = Object.hasOwn(clientTargets, dto.activeTarget) ? dto.activeTarget : status.activeTarget;
-          status.targetPending = dto.targetPending === true || dto.restartRequired === true || status.activeTarget !== extra.target;
+          status.activeTarget = Object.hasOwn(clientTargets, dto.activeTarget) ? dto.activeTarget : null;
+          status.targetPending = dto.targetPending === true || dto.restartRequired === true;
           renderTargetStatus();
         }
       }
