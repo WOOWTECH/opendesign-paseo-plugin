@@ -387,12 +387,10 @@
       }
       if (action === "target") {
         if (dto.connectionTarget !== extra.target) throw new Error("INVALID_RESPONSE");
-        if (status) {
-          status.desiredTarget = extra.target;
-          status.activeTarget = Object.hasOwn(clientTargets, dto.activeTarget) ? dto.activeTarget : null;
-          status.targetPending = dto.targetPending === true || dto.restartRequired === true;
-          renderTargetStatus();
-        }
+        // A target selection can supersede the initial GET before it renders.
+        // The manager returns the complete public status, so use that snapshot
+        // even when this page has no previous status to patch.
+        renderStatus(dto);
       }
       if (action === "onboarding") {
         onboardingLink(dto.url);

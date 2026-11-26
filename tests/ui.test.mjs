@@ -268,7 +268,7 @@ test('pairing is official-only, transient, expires and never enters request quer
 test('client selection persists independently from provider login and gates pairing until active', async () => {
   const f = fixture(); await f.ready();
   f.$('provider').value = 'codex';
-  f.responses.push(f.response({ connectionTarget: 'woowtech', activeTarget: 'paseo', targetPending: true, restartRequired: true }));
+  f.responses.push(f.response(current({ connectionTarget: 'woowtech', activeTarget: 'paseo', targetPending: true, restartRequired: true })));
   f.$('client-target').value = 'woowtech'; f.$('client-target').emit('change'); await flush();
   assert.deepEqual(f.calls.at(-1).json, { action: 'target', target: 'woowtech' });
   assert.equal(f.$('provider').value, 'codex');
@@ -284,7 +284,8 @@ test('a stopped daemon has no active client target and cannot advertise pairing 
   assert.equal(f.$('active-target').textContent, '尚未運行');
   assert.match(f.$('target-note').textContent, /下次手動啟動/);
   assert.equal(f.$('pair').disabled, true);
-  f.responses.push(f.response({ connectionTarget: 'apporo', activeTarget: null, targetPending: false }));
+  f.responses.push(f.response(current({ phase: 'disabled', desiredEnabled: false, connectionTarget: 'apporo', activeTarget: null,
+    daemon: { running: false, reachable: false, relayEnabled: false }, targetPending: false })));
   f.$('client-target').value = 'apporo'; f.$('client-target').emit('change'); await flush();
   assert.equal(f.$('active-target').textContent, '尚未運行');
   assert.match(f.$('target-note').textContent, /下次手動啟動/);
@@ -299,8 +300,21 @@ test('target switch during pair clears late response and queues desired target u
   assert.equal(f.$('pair-link').getAttribute('href'), null);
   assert.doesNotMatch(f.doc.body.textContent, /LATE_SECRET/);
   assert.deepEqual(f.calls.at(-1).json, { action: 'target', target: 'apporo' });
-  configured.resolve(f.response({ connectionTarget: 'apporo', activeTarget: 'paseo', targetPending: true })); await flush();
+  configured.resolve(f.response(current({ connectionTarget: 'apporo', activeTarget: 'paseo', targetPending: true }))); await flush();
   assert.equal(f.$('pair').disabled, true);
+});
+
+test('target selection before the initial status reply renders its full DTO and ignores the stale read', async () => {
+  const f = fixture(), initial = deferred();
+  f.responses.push(() => initial.promise); f.start(); await flush();
+  f.responses.push(f.response(current({ connectionTarget: 'apporo', activeTarget: 'apporo' })));
+  f.$('client-target').value = 'apporo'; f.$('client-target').emit('change'); await flush();
+  assert.match(f.$('active-target').textContent, /Apporo Smart/);
+  assert.match(f.$('daemon').textContent, /可連線/);
+  assert.equal(f.$('pair').disabled, false);
+  initial.resolve(f.response(current())); await flush();
+  assert.equal(f.$('client-target').value, 'apporo');
+  assert.match(f.$('active-target').textContent, /Apporo Smart/);
 });
 
 test('pair result arriving after page hide stays out of protected DOM', async () => {
