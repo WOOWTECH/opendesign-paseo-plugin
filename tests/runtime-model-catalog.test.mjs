@@ -34,7 +34,8 @@ function fixture(t, { truth, errors = {}, healsOnRefresh = false }) {
     close: async () => {},
   };
   const source = new URL('../vendor/pi-paseo/src/runtime.mjs', import.meta.url);
-  const code = ts.transpileModule(fs.readFileSync(source, 'utf8'), { fileName: source.pathname + '.ts', compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
+  const moduleSource = fs.readFileSync(source, 'utf8').replaceAll('import.meta.url', JSON.stringify(source.href));
+  const code = ts.transpileModule(moduleSource, { fileName: source.pathname + '.ts', compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
   const require = createRequire(import.meta.url), module = { exports: {} };
   const localRequire = spec => {
     if (spec === './state.mjs') return { locations: () => loc, readState: () => ({}), updateState: () => ({}), RuntimeError, processIdentity: () => null };
