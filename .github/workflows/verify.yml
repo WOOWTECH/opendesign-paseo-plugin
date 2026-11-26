@@ -12,7 +12,7 @@ jobs:
         run: docker build -f image/Dockerfile.agent-connect -t opendesign-agent-connect:test .
       - name: Verify first activation offline without accounts or pairing
         timeout-minutes: 5
-        run: docker run --rm --network none --entrypoint node opendesign-agent-connect:test /opt/opendesign-paseo/scripts/smoke-managed-runtime.mjs
+        run: docker run --rm --network none opendesign-agent-connect:test node /opt/opendesign-paseo/scripts/smoke-managed-runtime.mjs
   verify-image-contract:
     runs-on: ubuntu-latest
     steps:

@@ -62,6 +62,8 @@ async def verify(args, proof):
             route = routes[plugin]
             card = page.get_by_test_id('plugins-card-' + plugin)
             await card.wait_for(state='visible', timeout=30000)
+            if plugin == 'woow-paseo':
+                await expect(card.get_by_text('Agent Connect', exact=True)).to_be_visible()
             link = card.locator('a[href="' + route + '"]')
             require(await link.count() == 1, 'NATIVE_LAUNCH_LINK_MISSING')
             require(await link.get_attribute('target') == '_blank', 'NEW_TAB_CONTRACT_FAILED')
