@@ -1,3 +1,4 @@
+import {readyFixture} from './fixtures/managed-runtime.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -21,7 +22,7 @@ test('pairing returns a validated offer without persisting it and removes a lega
   const release = layout.runtimeDirectory(loc), cli = path.join(release, 'node_modules/@getpaseo/cli');
   fs.mkdirSync(cli, { recursive: true });
   fs.writeFileSync(path.join(cli, 'package.json'), JSON.stringify({ version: layout.PASEO_VERSION }));
-  layout.markRuntimeReady(loc);
+  readyFixture(loc);
   const offer = { v: 2, serverId: 'owned-fixture', daemonPublicKeyB64: 'fixture', minimumSecurityMode: 'protected', relay: { endpoint: 'relay.paseo.sh:443', useTls: true } };
   const url = 'https://app.paseo.sh/#offer=' + Buffer.from(JSON.stringify(offer)).toString('base64url');
   const privateFile = path.join(dir, 'pairing.private.json');

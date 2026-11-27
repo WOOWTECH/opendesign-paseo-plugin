@@ -1,3 +1,4 @@
+import {readyFixture} from './fixtures/managed-runtime.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -148,7 +149,7 @@ function runtimeFixture(t, failedTurn = 1) {
   const entry = path.join(runtimeDirectory(locations()), 'node_modules/@getpaseo/cli/dist/utils/client.js');
   fs.mkdirSync(path.dirname(entry), { recursive: true });
   fs.writeFileSync(path.join(path.dirname(path.dirname(path.dirname(entry))),'package.json'),JSON.stringify({version:PASEO_VERSION}));
-  fs.writeFileSync(path.join(runtimeDirectory(locations()),'.pi-paseo-runtime.json'),JSON.stringify({revision:RUNTIME_REVISION,lockSha256:RUNTIME_LOCK_SHA256}));
+  readyFixture(locations());
   fs.writeFileSync(path.join(path.dirname(entry), 'package.json'), '{"type":"module"}');
   fs.writeFileSync(entry, `export async function connectToDaemon(){return globalThis[${JSON.stringify(key)}];}`);
   let turn = 0, marker = '', sent = 0;

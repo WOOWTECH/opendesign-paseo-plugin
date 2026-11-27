@@ -24,7 +24,7 @@
     },
     {
       "file": "src/runtime-layout.mjs",
-      "summary": "Added immutable exact 0.17.5 release receipts and strict recognition of the prior owned 0.11.2 release for migration and rollback."
+      "summary": "Immutable 0.17.5 r2 receipt verifies brand patch/helper hashes, with strict legacy 0.11.2 recognition for owned-daemon control and rollback."
     },
     {
       "file": "src/acceptance-workspace.mjs",
@@ -45,6 +45,14 @@
     {
       "file": "src/state.mjs",
       "summary": "withLockTransition can run a hash-pinned Python flock helper (the helper option or PI_PASEO_FLOCK_HELPER, sha256 f178c22c...) through /usr/bin/python3 instead of util-linux flock."
+    },
+    {
+      "file": "src/brand-identity.mjs",
+      "summary": "Locally selected connection target supplies the daemon hello brand; unknown targets fail closed."
+    },
+    {
+      "file": "src/brand-identity-patch.mjs",
+      "summary": "Hash-pinned @getpaseo/server 0.17.5 patch adds only the optional server_info brand field required by branded Apps; unknown source bytes are rejected."
     }
   ],
   "files": {
@@ -128,9 +136,9 @@
     },
     "src/runtime-layout.mjs": {
       "status": "patched",
-      "vendoredSha256": "d3c4c00bcb8d6a36fee11ca8e35ac5a9980f0592c4e2dfb5c8de717755cfc2c5",
+      "vendoredSha256": "f761cebd0e51f87fe3bd0be6b08e85af9aa0d258c733c2149594e0c764744e99",
       "baseSha256": "e6507302ac3436efeb8bf97bc6f99c5829c7a44a6a2c0f4990939b02d97731e8",
-      "summary": "Versioned immutable 0.17.5 runtime receipts plus exact 0.11.2 legacy recognition for controlled migration and rollback."
+      "summary": "Immutable 0.17.5 r2 receipt verifies brand patch/helper hashes, with strict legacy 0.11.2 recognition for owned-daemon control and rollback."
     },
     "src/runtime.mjs": {
       "status": "patched",
@@ -161,6 +169,18 @@
       "vendoredSha256": "46feb4988e8ce057bd3e24a8a457d51870f2cb4b589d9add4015ceebcdef1806",
       "baseSha256": "46feb4988e8ce057bd3e24a8a457d51870f2cb4b589d9add4015ceebcdef1806",
       "summary": "Byte-identical to the base commit."
+    },
+    "src/brand-identity.mjs": {
+      "status": "added",
+      "vendoredSha256": "036471982ccbbb5a7c3418631518025b245ac50e1c0b1a29c3824d16ba069733",
+      "baseSha256": null,
+      "summary": "Locally selected connection target supplies the daemon hello brand; unknown targets fail closed."
+    },
+    "src/brand-identity-patch.mjs": {
+      "status": "added",
+      "vendoredSha256": "6a812e948c2bd3aaa4a5b383f6b3ff6d1689601631b6a05ca7c07fc21f95b117",
+      "baseSha256": null,
+      "summary": "Hash-pinned @getpaseo/server 0.17.5 patch adds only the optional server_info brand field required by branded Apps; unknown source bytes are rejected."
     }
   }
 }

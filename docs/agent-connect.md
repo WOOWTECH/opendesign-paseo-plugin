@@ -14,7 +14,7 @@ Agent Connect 是 OpenDesign 的連線設定入口，底層使用受管理的 Pa
 | Woowtech Smart | https://smart.woowtech.io | Woowtech relay |
 | Apporo Smart | https://smart.apporo.ai | Apporo relay |
 
-三個目標的 App、relay 與配對資訊必須一致。不要手動修改配對網址的網域，也不要將另一個目標的配對連結貼入目前的 App。
+三個目標的 App、relay、主機品牌與配對資訊必須一致。主機品牌由本機選定目標在啟動時提供；切換目標需停止再啟動。受管理的 0.17.5 runtime 使用雜湊鎖定的相容修補加入主機確認所需的品牌欄位；官方檔案不符時拒絕套用。不要手動修改配對網址的網域，也不要將另一個目標的配對連結貼入目前的 App。
 
 ## 首次配對
 
@@ -51,7 +51,7 @@ Claude Code、Codex、Pi 使用各自的原生登入流程與主機供應商目�
 
 1. 在 Agent Connect 選擇 App。若出現待套用提示，依序停止、啟動服務，確認運行目標一致再產生連結。
 2. 在對應 App 按 **Paste pairing link**，貼上連結並按 **Pair**。核對主機確認畫面的資訊後按 **Connect**；若出現初始設定，完成或選擇 **Skip setup**。能看到正常側欄與 **New workspace**，才完成主機確認。單獨出現 Connected 文字不足以判定成功。
-3. 按 **New workspace → Choose project → Add project → Existing**，選擇已授權的測試資料夾並按 **Open project**。已列出的專案可直接選取。
+3. 按 **New workspace → Choose project → Add project → Existing**，選擇已授權的測試資料夾並按 **Open project**。若 App 顯示方式選擇頁，先按 **Search for directory**，輸入資料夾路徑後選取結果；部分 App 版本使用此流程。已列出的專案可直接選取。
 4. 選 **Chat**，打開模型選擇器，先選供應商，再選模型。若選擇器直接顯示目前供應商的模型，先按返回再切換供應商。模式另由模式選單選擇。
 5. 第一輪要求模型記住一個新的測試標記並回覆；第二輪不重複標記，要求模型讀回該標記。確認兩輪皆為 assistant 回覆，且仍是同一個 agent。重新整理與恢復網路後再核對歷史。
 6. 串流測試需先看到實際輸出，再按停止，確認輸出停止增長。權限測試可在專用 agent 選 **Always ask**，分別拒絕與允許一項測試檔案操作，核對實際檔案結果。
@@ -59,6 +59,6 @@ Claude Code、Codex、Pi 使用各自的原生登入流程與主機供應商目�
 8. 工作區新增 **Terminal**，輸入短指令，核對指令下一行的實際輸出。重新整理後核對重播，再關閉終端並接受瀏覽器的關閉確認。
 9. 在 **Settings → 該主機 → Agents → Orchestration skills → Choose skills** 檢查內建技能。記錄原設定，測試儲存單一技能選擇並核對安裝狀態，最後恢復原選擇與安裝開關；移除時需完成瀏覽器確認。
 
-Pi 顯示的 **Default** 可以只是未設定模型時的佔位項目。若回覆為找不到 API key、需要 `/login` 等系統錯誤，應記錄未登入處理及模型驗收受阻，不能當成模型對話成功。
+Pi 顯示的 **Default** 可以只是未設定模型時的佔位項目。若回覆為找不到 API key、需要 `/login` 等系統錯誤，應記錄未登入處理及模型驗收受阻，不能當成模型對話成功。未登入而建立的失敗 Pi 會話在主機重啟後可能沒有可讀的 session 檔；完成登入後應新建 agent 進行正向驗收。
 
 驗收表至少記錄 App／套件／底層 Paseo 版本、供應商與模型、兩輪回覆、重新連線、串流停止、檔案附件、終端、權限、技能及清理結果。完成後只清理本輪建立的 agent、工作區與檔案，恢復測試前的設定。

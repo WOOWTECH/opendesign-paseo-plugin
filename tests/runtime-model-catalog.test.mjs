@@ -1,3 +1,4 @@
+import {readyFixture} from './fixtures/managed-runtime.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -20,7 +21,7 @@ function fixture(t, { truth, errors = {}, healsOnRefresh = false }) {
   fs.mkdirSync(loc.paseoHome);
   const runtimeRoot=runtimeLayout.runtimeDirectory(loc),cliRoot=path.join(runtimeRoot,'node_modules/@getpaseo/cli');fs.mkdirSync(cliRoot,{recursive:true});
   fs.writeFileSync(path.join(cliRoot,'package.json'),JSON.stringify({version:runtimeLayout.PASEO_VERSION}));
-  fs.writeFileSync(path.join(runtimeRoot,'.pi-paseo-runtime.json'),JSON.stringify({revision:runtimeLayout.RUNTIME_REVISION,lockSha256:runtimeLayout.RUNTIME_LOCK_SHA256}));
+  readyFixture(loc);
   const cache = Object.fromEntries(Object.keys(truth).map(provider => [provider, []])); // snapshot taken before login
   const calls = { refresh: [], list: 0 };
   const client = {
