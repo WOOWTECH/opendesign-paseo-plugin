@@ -2,9 +2,9 @@
 
 Agent Connect 是 OpenDesign 的連線設定入口，底層使用受管理的 Paseo daemon。它沿用原本的 `/paseo/setup/` 路徑與原生插件識別，不會因為名稱改變而建立另一份帳號或對話資料。
 
-這份文件對應 `0.3.0`。實測結果以各次驗收紀錄為準；僅匯入 Skill 不會替任意 OpenDesign 主機安裝後端。
+這份文件對應 `0.3.1`。實測結果以各次驗收紀錄為準；僅匯入 Skill 不會替任意 OpenDesign 主機安裝後端。
 
-插件卡片版本與 Agent Connect 套件同為 `0.3.0`；設定頁的 Paseo 版本固定為 `0.17.5`，官方後續版本須先驗證相容再升級。三個公開 App 各自發布，App 顯示的版本可以不同，應連同當下測試結果一起記錄。
+插件卡片版本與 Agent Connect 套件同為 `0.3.1`；設定頁的 Paseo 版本固定為 `0.17.5`，官方後續版本須先驗證相容再升級。三個公開 App 各自發布，App 顯示的版本可以不同，應連同當下測試結果一起記錄。
 
 ## 選擇測試端
 
@@ -37,7 +37,7 @@ Claude Code、Codex、Pi 使用各自的原生登入流程與主機供應商目�
 
 升級候選會保留原來的 provider HOME、Paseo 身分、對話與工作區。舊 daemon 仍執行時需明確停止再啟動，才切換到新版 runtime。原先手動停止的服務不應在主機或設定頁重開後自行啟動。
 
-升級前由操作者備份當前設定，並保留舊 runtime；套件不會自動建立升級前的設定快照。回復時先核對備份對應的版本，再還原設定及套件。若在 0.17.5 的 Devices 啟用了額外監聽位址，先關閉新增監聽並確認設定恢復為舊版可讀的格式，再回到不支援多監聽的版本。不要清空 Paseo HOME 或刪除 provider 目錄處理回復。
+升級前由操作者備份當前設定，並保留舊 runtime；套件不會自動建立升級前的設定快照。回復時先核對備份對應的版本，再還原設定及套件。0.17.5 一定會在 daemon 設定寫入 `daemon.relay.requireProtectedSecurity`（官方目標 true、品牌目標 false），舊版 0.11.2 讀到這個鍵會回 `CONFIG_INVALID`、Agent Connect 起不來：回到 0.11.2 時，先還原升級前的備份；沒有備份時，以應用使用者身分只刪這一個鍵（檔案維持 0600），約 40 秒後自動恢復，對話與身分都保留。若在 0.17.5 的 Devices 啟用了額外監聽位址，也先關閉。不要清空 Paseo HOME 或刪除 provider 目錄處理回復。
 
 ## 三端驗收紀錄
 
@@ -62,3 +62,8 @@ Claude Code、Codex、Pi 使用各自的原生登入流程與主機供應商目�
 Pi 顯示的 **Default** 可以只是未設定模型時的佔位項目。若回覆為找不到 API key、需要 `/login` 等系統錯誤，應記錄未登入處理及模型驗收受阻，不能當成模型對話成功。未登入而建立的失敗 Pi 會話在主機重啟後可能沒有可讀的 session 檔；完成登入後應新建 agent 進行正向驗收。
 
 驗收表至少記錄 App／套件／底層 Paseo 版本、供應商與模型、兩輪回覆、重新連線、串流停止、檔案附件、終端、權限、技能及清理結果。完成後只清理本輪建立的 agent、工作區與檔案，恢復測試前的設定。
+
+## 版本紀錄
+
+- `0.3.1`：只改建置。Alpine（musl）上的 node-pty 改用映像內同版本的 Node 標頭編譯（`npm_config_nodedir`），不再從 unofficial-builds.nodejs.org 下載；從亞洲連這台主機約 250 ms，正好碰上 Node 每個位址 250 ms 的連線嘗試逾時，Podman 全新安裝與叢集內建置會隨機以 `NATIVE_NODE_PTY_BUILD_FAILED` 失敗。失敗時把 npm 的錯誤尾段留在建置紀錄；CI 建置時封鎖下載主機。Paseo `0.17.5` 與 runtime 修訂號 `0.17.5-r2-186f173be43b` 不變，既有安裝不必重新安裝 runtime。回復說明更正為 `requireProtectedSecurity` 一定會寫入。
+- `0.3.0`：改用官方 Paseo CLI `0.17.5`，提供 Paseo、Woowtech Smart、Apporo Smart 三個連線目標。
