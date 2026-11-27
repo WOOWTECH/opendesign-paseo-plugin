@@ -1,0 +1,23 @@
+FROM ghcr.io/woowtech/open-design-core:20261101.2319@sha256:a3d1e6ce84774d11e03a31b379be438b5f53fe832ddd4b72d31fc837462bbd62
+USER root
+WORKDIR /opt/opendesign-paseo
+RUN apk add --no-cache python3 libstdc++ \
+ && apk add --no-cache --virtual .agent-connect-build build-base
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+COPY bin ./bin
+COPY host ./host
+COPY src ./src
+COPY ui ./ui
+COPY launcher ./launcher
+COPY vendor ./vendor
+COPY scripts/prepare-managed-runtime.mjs scripts/smoke-managed-runtime.mjs ./scripts/
+RUN node scripts/prepare-managed-runtime.mjs /opt/opendesign-paseo/managed-runtime \
+ && chmod -R a+rX,go-w /opt/opendesign-paseo \
+ && apk del .agent-connect-build \
+ && rm -rf /root/.npm
+COPY launcher/open-design.json launcher/SKILL.md /app/plugins/_official/woow/woow-paseo/
+USER open-design
+WORKDIR /app
+# Keep the reviewed core's ENTRYPOINT/CMD, native OpenDesign modules and other
+# bundled integrations. The chart supervises this optional launcher explicitly.

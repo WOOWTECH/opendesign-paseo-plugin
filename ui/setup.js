@@ -6,6 +6,11 @@
   const endpoint = prefix + "/api/paseo-bridge";
   const providers = ["claude", "codex", "pi"];
   const names = { claude: "Claude Code", codex: "Codex", pi: "Pi" };
+  const clientTargets = {
+    paseo: { label: "Paseo", origin: "https://app.paseo.sh" },
+    woowtech: { label: "Woowtech Smart", origin: "https://smart.woowtech.io" },
+    apporo: { label: "Apporo Smart", origin: "https://smart.apporo.ai" },
+  };
   const phaseLabels = {
     absent: "尚未安裝", not_installed: "尚未安裝", installing: "正在安裝",
     starting: "正在啟動", ready: "服務已就緒", running: "服務運作中",
@@ -13,6 +18,7 @@
     error: "需要處理", failed: "需要處理", degraded: "連線待確認", restart_required: "需要重新啟動",
   };
   const diagnostics = {
+    RUNTIME_NATIVE_UNAVAILABLE: "主機缺少相容的執行環境，請由管理員更新為已內建 Agent Connect 的映像，再重新啟動服務。",
     PROVIDER_AUTH_REQUIRED: "請先完成官方登入。",
     PROVIDER_QUOTA_EXHAUSTED: "服務商額度不足，或模型的輸出上限超過可用額度。請在服務商確認額度，或在原生模型設定降低輸出上限後重試。",
     PROVIDER_TURN_FAILED: "服務商未能完成這輪回覆。請確認所選模型、帳號額度與原生設定，再重新測試。",
@@ -34,10 +40,11 @@
   const dateLabel = value => timestamp(value) ? new Date(value).toLocaleString("zh-TW") : "時間未提供";
   let status = null, catalog = null, busy = false, authBlocked = false, disposed = false;
   let generation = 0, visibilityGeneration = 0, readController = null;
-  let pageGeneration = 0, mutationGeneration = 0, transientGeneration = 0;
+  let pageGeneration = 0, mutationGeneration = 0, transientGeneration = 0, targetGeneration = 0;
   let pendingOperation = null, operationMessage = null;
   let pollTimer = null, attempts = 0, transientTimer = null, loginProvider = null;
   let authTimer = null, authAttempts = 0, loginExpiresAt = 0, requiresInput = false;
+  let queuedTarget = null;
   const requests = new Set();
 
   function clearPoll() { clearTimeout(pollTimer); pollTimer = null; }
@@ -78,7 +85,9 @@
     for (const id of ["enable", "disable", "login", "onboarding"]) $(id).disabled = locked || !status;
     $("enable").disabled ||= status?.pluginInstalled === false || reachable && status?.desiredEnabled === true;
     $("disable").disabled ||= !status?.desiredEnabled && !status?.daemon?.running;
-    for (const id of ["models", "pair"]) $(id).disabled = locked || !reachable;
+    $("models").disabled = locked || !reachable;
+    const target = selectedTarget();
+    $("pair").disabled = locked || !reachable || status?.activeTarget !== target || status?.targetPending === true;
     $("provider").disabled = locked;
     $("model").disabled = locked || !reachable || !catalog?.models.length;
     $("mode").disabled = locked || !reachable || !catalog?.modes.length;
@@ -87,6 +96,25 @@
     for (const id of ["login-status", "login-cancel"]) $(id).disabled = locked || !loginProvider;
     $("login-submit").disabled = locked || !loginProvider || !requiresInput;
     document.body.setAttribute("aria-busy", busy ? "true" : "false");
+  }
+  function selectedTarget() {
+    return Object.hasOwn(clientTargets, $("client-target").value) ? $("client-target").value : "paseo";
+  }
+  function renderClientTarget() {
+    const target = clientTargets[selectedTarget()];
+    $("client-link").setAttribute("href", target.origin);
+    text("client-link", "開啟 " + target.label);
+  }
+  function renderTargetStatus() {
+    if (!status) return;
+    const desired = clientTargets[status.desiredTarget] || clientTargets.paseo;
+    const active = clientTargets[status.activeTarget];
+    text("desired-target", desired.label);
+    text("active-target", active ? active.label + "（底層 Paseo 執行階段）" : "尚未運行");
+    const mismatched = status.activeTarget !== selectedTarget() || status.targetPending;
+    text("target-note", mismatched && status.daemon.running
+      ? "用戶端設定已儲存。請手動停止再啟動底層 Paseo 服務，生效後才能建立配對連結。"
+      : mismatched ? "用戶端設定已儲存；下次手動啟動底層 Paseo 服務後生效。" : "用戶端與底層 Paseo 執行階段一致，可以建立配對連結。");
   }
   function schedulePoll(delayMs = 15000) {
     clearPoll();
@@ -224,6 +252,9 @@
       pluginInstalled: typeof dto.pluginInstalled === "boolean" ? dto.pluginInstalled : null,
       phase: clean(dto.phase), desiredEnabled: dto.desiredEnabled === true,
       daemon: { running: dto.daemon.running === true, reachable: dto.daemon.reachable, relayEnabled: dto.daemon.relayEnabled === true },
+      desiredTarget: Object.hasOwn(clientTargets, dto.connectionTarget) ? dto.connectionTarget : "paseo",
+      activeTarget: Object.hasOwn(clientTargets, dto.activeTarget) ? dto.activeTarget : null,
+      targetPending: dto.targetPending === true || dto.restartRequired === true,
       operation: { pending: dto.operation?.pending === true || ["queued", "running"].includes(dto.operation?.status) || pendingOperation !== null },
     };
     text("phase", dto.installed === false ? "尚未安裝" : phaseLabels[status.phase] || "狀態待確認");
@@ -243,6 +274,8 @@
     if (!status.daemon.reachable) clearCatalog();
     renderHistory(dto.lastVerification || dto.acceptance);
     onboardingLink(dto.onboarding?.url);
+    if (selectedTarget() !== status.desiredTarget) $("client-target").value = status.desiredTarget;
+    renderClientTarget(); renderTargetStatus();
     controls();
   }
   async function refresh(manual = false) {
@@ -286,7 +319,7 @@
     }, duration);
     return true;
   }
-  function officialURL(value, kind, provider) {
+  function officialURL(value, kind, provider, pairTarget) {
     if (typeof value !== "string" || value.length > 12000) return null;
     try {
       const url = new URL(value);
@@ -295,7 +328,7 @@
         codex: ["auth.openai.com", "platform.openai.com", "openai.com"],
         pi: ["auth.openai.com", "platform.openai.com", "openai.com"],
       };
-      const allowed = kind === "pair" ? ["app.paseo.sh"] : loginHosts[provider] || [];
+      const allowed = kind === "pair" && clientTargets[pairTarget] ? [new URL(clientTargets[pairTarget].origin).hostname] : loginHosts[provider] || [];
       if (url.protocol !== "https:" || url.username || url.password || url.port ||
           !allowed.includes(url.hostname) || kind === "pair" && url.search) return null;
       return url.href;
@@ -305,7 +338,7 @@
     if (busy || authBlocked || disposed || status?.operation?.pending) return;
     const previousSelection = action === "models" && catalog?.provider === extra.provider
       ? { model: $("model").value, mode: $("mode").value } : null;
-    const issuedMutation = ++mutationGeneration, pageAtStart = pageGeneration;
+    const issuedMutation = ++mutationGeneration, pageAtStart = pageGeneration, targetAtStart = targetGeneration;
     busy = true; clearPoll();
     clearTimeout(authTimer); authTimer = null;
     if (action !== "login" || extra.step !== "status") clearTransient();
@@ -352,6 +385,13 @@
         options("model", catalog.models, "目前沒有可用模型", model);
         options("mode", catalog.modes, "使用服務預設", mode);
       }
+      if (action === "target") {
+        if (dto.connectionTarget !== extra.target) throw new Error("INVALID_RESPONSE");
+        // A target selection can supersede the initial GET before it renders.
+        // The manager returns the complete public status, so use that snapshot
+        // even when this page has no previous status to patch.
+        renderStatus(dto);
+      }
       if (action === "onboarding") {
         onboardingLink(dto.url);
         if ($("onboarding-link").hidden) throw new Error("INVALID_RESPONSE");
@@ -372,7 +412,11 @@
         return;
       }
       if (action === "pair") {
-        const url = officialURL(dto.url, "pair");
+        if (dto.target !== extra.target || targetAtStart !== targetGeneration || selectedTarget() !== extra.target) {
+          text("notice", "用戶端已切換；舊的配對回應已清除，請重新建立。");
+          return;
+        }
+        const url = officialURL(dto.url, "pair", undefined, extra.target);
         if (!url) throw new Error("INVALID_RESPONSE");
         if (!expireTransient(dto.expiresAt)) return;
         $("pair-link").setAttribute("href", url); $("pair-link").hidden = false;
@@ -417,7 +461,8 @@
         }
       }
       text("notice", action === "models" && !catalog.models.length ? "目前沒有可用模型，請先確認官方登入。" :
-        action === "pair" ? "配對連結已建立。請到官方 App 完成配對。" :
+        action === "pair" ? "配對連結已建立。請到所選用戶端完成配對。" :
+        action === "target" ? (status?.targetPending ? "用戶端設定已儲存。請手動停止再啟動服務後配對。" : "用戶端設定已生效。") :
         action === "acceptance" ? "測試結果已更新，請查看下方兩輪回覆結果。" : "操作已回覆。");
     } catch (error) {
       if (disposed || issuedMutation !== mutationGeneration || pageAtStart !== pageGeneration) return;
@@ -433,13 +478,24 @@
     } finally {
       if (issuedMutation === mutationGeneration && pageAtStart === pageGeneration) {
         busy = false; controls(); schedulePoll(pendingOperation ? 1000 : 15000); scheduleAuthPoll();
+        if (queuedTarget) {
+          const target = queuedTarget; queuedTarget = null;
+          void mutate("target", { target });
+        }
       }
     }
   }
   $("refresh").addEventListener("click", () => { void refresh(true); });
-  for (const action of ["enable", "disable", "pair", "onboarding"]) {
+  for (const action of ["enable", "disable", "onboarding"]) {
     $(action).addEventListener("click", () => { void mutate(action); });
   }
+  $("pair").addEventListener("click", () => { void mutate("pair", { target: selectedTarget() }); });
+  $("client-target").addEventListener("change", () => {
+    targetGeneration += 1; clearTransient(); renderClientTarget(); controls();
+    const target = selectedTarget();
+    if (busy) queuedTarget = target;
+    else void mutate("target", { target });
+  });
   $("models").addEventListener("click", () => { void mutate("models", { provider: $("provider").value }); });
   $("provider").addEventListener("change", () => {
     clearCatalog(); clearTransient(); loginProvider = null; controls();
@@ -483,5 +539,6 @@
   window.addEventListener("pageshow", event => {
     if (event.persisted) { disposed = false; status = null; authBlocked = false; attempts = 0; controls(); void refresh(true); }
   });
+  renderClientTarget();
   void refresh();
 })();

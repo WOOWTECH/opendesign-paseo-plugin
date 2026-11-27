@@ -1,13 +1,13 @@
 ---
 name: woow-paseo
-description: Open Paseo setup in OpenDesign when the user wants to manage the Paseo service, connect the Paseo app, or check provider readiness.
+description: Open Agent Connect in OpenDesign when the user wants to manage the underlying Paseo service, connect Paseo, Woowtech Smart or Apporo Smart, or check provider readiness.
 ---
 
-# Paseo 設定
+# Agent Connect
 
-在 OpenDesign「插件」頁找到「Paseo 設定」，按「開啟」前往同源的 [/paseo/setup/](/paseo/setup/)。使用設定頁提供的服務管理、帳號授權與 App 配對流程。
+在 OpenDesign「插件」頁找到「Agent Connect」，按「開啟」前往同源的 [/paseo/setup/](/paseo/setup/)。使用設定頁管理底層 Paseo 服務、帳號授權，並選擇 Paseo、Woowtech Smart 或 Apporo Smart 完成配對。
 
-依設定頁的實際結果區分服務就緒、供應商授權與模型對話成功。CLI 或帳號檔存在、模型清單可讀、配對連結已產生，都不能單獨證明新對話或 App 配對成功。若頁面沒有 Paseo 設定內容，回報主機整合尚未就緒。
+依設定頁的實際結果區分服務就緒、供應商授權與模型對話成功。CLI 或帳號檔存在、模型清單可讀、配對連結已產生，都不能單獨證明新對話或用戶端配對成功。若頁面沒有 Agent Connect 內容，回報主機整合尚未就緒。
 
 帳號授權與配對資訊只在受保護的設定頁及官方授權流程中處理；不要將密碼、API key、OAuth 資料或配對連結放入聊天。
 

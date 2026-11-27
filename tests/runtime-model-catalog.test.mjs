@@ -1,3 +1,4 @@
+import {readyFixture} from './fixtures/managed-runtime.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -18,6 +19,9 @@ function fixture(t, { truth, errors = {}, healsOnRefresh = false }) {
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const loc = { home: dir, agentDir: dir, stateDir: dir, runtimeDir: path.join(dir, 'runtime'), paseoHome: path.join(dir, 'daemon'), port: 6769 };
   fs.mkdirSync(loc.paseoHome);
+  const runtimeRoot=runtimeLayout.runtimeDirectory(loc),cliRoot=path.join(runtimeRoot,'node_modules/@getpaseo/cli');fs.mkdirSync(cliRoot,{recursive:true});
+  fs.writeFileSync(path.join(cliRoot,'package.json'),JSON.stringify({version:runtimeLayout.PASEO_VERSION}));
+  readyFixture(loc);
   const cache = Object.fromEntries(Object.keys(truth).map(provider => [provider, []])); // snapshot taken before login
   const calls = { refresh: [], list: 0 };
   const client = {
@@ -31,7 +35,8 @@ function fixture(t, { truth, errors = {}, healsOnRefresh = false }) {
     close: async () => {},
   };
   const source = new URL('../vendor/pi-paseo/src/runtime.mjs', import.meta.url);
-  const code = ts.transpileModule(fs.readFileSync(source, 'utf8'), { fileName: source.pathname + '.ts', compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
+  const moduleSource = fs.readFileSync(source, 'utf8').replaceAll('import.meta.url', JSON.stringify(source.href));
+  const code = ts.transpileModule(moduleSource, { fileName: source.pathname + '.ts', compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
   const require = createRequire(import.meta.url), module = { exports: {} };
   const localRequire = spec => {
     if (spec === './state.mjs') return { locations: () => loc, readState: () => ({}), updateState: () => ({}), RuntimeError, processIdentity: () => null };

@@ -6,17 +6,25 @@
   "local_patches": [
     {
       "file": "src/runtime.mjs",
-      "summary": "readModels refreshes the provider catalog once when the first answer is empty or an error (carried from upstream pull request 9)",
+      "summary": "readModels refreshes the provider catalog once when the first answer is empty or an error (carried from upstream pull request 9) Alpine fallback requires a musl-compatible native runtime and delegates its verified build to the packaged helper; absent build tools fail with RUNTIME_NATIVE_UNAVAILABLE. Pairing offers are transient return values; legacy private offer files are removed. Runtime installation disables all dependency lifecycle scripts except the explicitly reviewed node-pty rebuild and executable checks.",
       "upstream": "https://github.com/WOOWTECH/pi-paseo-plugin/pull/9",
       "upstream_merge_commit": "33d3a8597e37"
     },
     {
       "file": "runtime/package-lock.json",
-      "summary": "Lock regenerated for those overrides, so six package versions differ from the base: MCP SDK 1.32.2, body-parser 1.20.9 and 2.4.0, fast-uri 3.1.9, markdown-it 14.3.3 and qs 6.16.1."
+      "summary": "Exact @getpaseo/cli 0.17.5 lock with audited overrides: MCP SDK 1.32.2, @hono/node-server 2.1.11, hono 4.13.23, markdown-it 14.3.3, ai 5.0.207 and uuid 11.1.1."
     },
     {
       "file": "runtime/package.json",
-      "summary": "Dependency overrides raised (MCP SDK 1.31.0 to 1.32.2, markdown-it 14.3.1 to 14.3.3) and new overrides added for body-parser 1.x and 2.x and fast-uri 3.1.9, with dependencies reformatted onto separate lines."
+      "summary": "Managed runtime upgraded to exact @getpaseo/cli 0.17.5 with explicit audited security/compatibility overrides."
+    },
+    {
+      "file": "src/connection-targets.mjs",
+      "summary": "Added fixed official, WoowTech and Apporo connection profiles with atomic app/relay/CORS/security configuration and strict decoded pairing-offer validation."
+    },
+    {
+      "file": "src/runtime-layout.mjs",
+      "summary": "Immutable 0.17.5 r2 receipt verifies brand patch/helper hashes, with strict legacy 0.11.2 recognition for owned-daemon control and rollback."
     },
     {
       "file": "src/acceptance-workspace.mjs",
@@ -37,6 +45,14 @@
     {
       "file": "src/state.mjs",
       "summary": "withLockTransition can run a hash-pinned Python flock helper (the helper option or PI_PASEO_FLOCK_HELPER, sha256 f178c22c...) through /usr/bin/python3 instead of util-linux flock."
+    },
+    {
+      "file": "src/brand-identity.mjs",
+      "summary": "Locally selected connection target supplies the daemon hello brand; unknown targets fail closed."
+    },
+    {
+      "file": "src/brand-identity-patch.mjs",
+      "summary": "Hash-pinned @getpaseo/server 0.17.5 patch adds only the optional server_info brand field required by branded Apps; unknown source bytes are rejected."
     }
   ],
   "files": {
@@ -48,15 +64,15 @@
     },
     "runtime/package-lock.json": {
       "status": "patched",
-      "vendoredSha256": "ae1416f8ca854dac432e1eac0e057490bce581ab08c0d60851f3298bb8893d00",
+      "vendoredSha256": "186f173be43be9eae82c2b06dbdf6050a75088ddba6a7cd139ee6e0a1dd7b82b",
       "baseSha256": "b60170bb6826a8f442532bcab11edddd99301a457ad4e9a96269be9383191ba3",
-      "summary": "Lock regenerated for those overrides, so six package versions differ from the base: MCP SDK 1.32.2, body-parser 1.20.9 and 2.4.0, fast-uri 3.1.9, markdown-it 14.3.3 and qs 6.16.1."
+      "summary": "Exact @getpaseo/cli 0.17.5 lock with audited overrides: MCP SDK 1.32.2, @hono/node-server 2.1.11, hono 4.13.23, markdown-it 14.3.3, ai 5.0.207 and uuid 11.1.1."
     },
     "runtime/package.json": {
       "status": "patched",
-      "vendoredSha256": "caffff6fd585e92067c557cfd58753d0a561c44a468828d61f53f68e2a285221",
+      "vendoredSha256": "17b50eb03549ecbdf6f75037259bc3a4cbfdb0ad6c4f1cc474f1fdf22674485c",
       "baseSha256": "b70bd73f02f0ea34437ee6a05bdba31d945a3d2da2ddc2c68c9e0a8efdd9d41c",
-      "summary": "Dependency overrides raised (MCP SDK 1.31.0 to 1.32.2, markdown-it 14.3.1 to 14.3.3) and new overrides added for body-parser 1.x and 2.x and fast-uri 3.1.9, with dependencies reformatted onto separate lines."
+      "summary": "Managed runtime upgraded to exact @getpaseo/cli 0.17.5 with explicit audited security/compatibility overrides."
     },
     "src/acceptance-agent.mjs": {
       "status": "identical",
@@ -75,6 +91,12 @@
       "vendoredSha256": "371d9a50951f18c1aeabca6a6359b5ca7c15a450e277f7191350cdc2e9c687dc",
       "baseSha256": "371d9a50951f18c1aeabca6a6359b5ca7c15a450e277f7191350cdc2e9c687dc",
       "summary": "Byte-identical to the base commit."
+    },
+    "src/connection-targets.mjs": {
+      "status": "added",
+      "vendoredSha256": "0e81217f6f23788ed68787a50567c6309467dea3177fdda5ca6a06ef19807ff2",
+      "baseSha256": null,
+      "summary": "Fixed connection profiles and strict pairing-offer validation shared by runtime and host security."
     },
     "src/health.mjs": {
       "status": "identical",
@@ -113,16 +135,16 @@
       "summary": "providerReplyError also classifies billing, insufficient-credit and payment-required replies as PROVIDER_QUOTA_EXHAUSTED, and the new providerTurnError maps a failed turn to a fixed error code without keeping its message."
     },
     "src/runtime-layout.mjs": {
-      "status": "identical",
-      "vendoredSha256": "e6507302ac3436efeb8bf97bc6f99c5829c7a44a6a2c0f4990939b02d97731e8",
+      "status": "patched",
+      "vendoredSha256": "f761cebd0e51f87fe3bd0be6b08e85af9aa0d258c733c2149594e0c764744e99",
       "baseSha256": "e6507302ac3436efeb8bf97bc6f99c5829c7a44a6a2c0f4990939b02d97731e8",
-      "summary": "Byte-identical to the base commit."
+      "summary": "Immutable 0.17.5 r2 receipt verifies brand patch/helper hashes, with strict legacy 0.11.2 recognition for owned-daemon control and rollback."
     },
     "src/runtime.mjs": {
       "status": "patched",
-      "vendoredSha256": "0e90a6bde728d510baaa7aba5e9f8ae2a3812f8bc972725358680707591b4fd7",
+      "vendoredSha256": "d5218e4c860d9f52dc82707ff6dbced563f86bfd4a7be2011643f538d58a7201",
       "baseSha256": "a7a5f19768487de22d269d70855d1fce0bdc04cd239378036c12719181643b49",
-      "summary": "Four local changes: a ready runtime is verified but never reinstalled or rewritten, a new daemon home starts with dictation and voice mode off, readModels refreshes an empty or errored provider catalog once (upstream pull request 9), and the acceptance check runs inside a created-then-archived workspace using providerTurnError and safeChatResult."
+      "summary": "0.17.5 lifecycle migration with versioned legacy control, preserved identity/providers/configuration, explicit connection-target switching, private strict pairing, owned PID-lock lifecycle and existing OpenDesign acceptance protections. Alpine fallback requires a musl-compatible native runtime and delegates its verified build to the packaged helper; absent build tools fail with RUNTIME_NATIVE_UNAVAILABLE. Pairing offers are transient return values; legacy private offer files are removed. Runtime installation disables all dependency lifecycle scripts except the explicitly reviewed node-pty rebuild and executable checks."
     },
     "src/safe-chat-result.mjs": {
       "status": "added",
@@ -147,6 +169,18 @@
       "vendoredSha256": "46feb4988e8ce057bd3e24a8a457d51870f2cb4b589d9add4015ceebcdef1806",
       "baseSha256": "46feb4988e8ce057bd3e24a8a457d51870f2cb4b589d9add4015ceebcdef1806",
       "summary": "Byte-identical to the base commit."
+    },
+    "src/brand-identity.mjs": {
+      "status": "added",
+      "vendoredSha256": "036471982ccbbb5a7c3418631518025b245ac50e1c0b1a29c3824d16ba069733",
+      "baseSha256": null,
+      "summary": "Locally selected connection target supplies the daemon hello brand; unknown targets fail closed."
+    },
+    "src/brand-identity-patch.mjs": {
+      "status": "added",
+      "vendoredSha256": "6a812e948c2bd3aaa4a5b383f6b3ff6d1689601631b6a05ca7c07fc21f95b117",
+      "baseSha256": null,
+      "summary": "Hash-pinned @getpaseo/server 0.17.5 patch adds only the optional server_info brand field required by branded Apps; unknown source bytes are rejected."
     }
   }
 }

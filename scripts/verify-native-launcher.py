@@ -35,11 +35,15 @@ async def verify(args, proof):
     base = target['base'].rstrip('/')
     parsed = urlsplit(base)
     require(parsed.scheme == 'https' and not parsed.username and not parsed.password and not parsed.query and not parsed.fragment and parsed.path == '', 'INVALID_TARGET')
+    require(not args.test_tls or parsed.hostname in ['localhost', '127.0.0.1'], 'TEST_TLS_REQUIRES_LOOPBACK')
+    routes = {'woow-cli-terminal': '/console/', 'woow-mcp-server': '/mcp-admin/', 'woow-paseo': '/paseo/setup/'}
+    launchers = target.get('launchers', list(routes))
+    require(isinstance(launchers, list) and 'woow-paseo' in launchers and all(item in routes for item in launchers), 'INVALID_EXPECTED_LAUNCHERS')
     proof['origin'] = base
     async with async_playwright() as pw:
         proof['stage'] = 'browser'
         browser = await pw.chromium.launch(headless=True, args=['--no-sandbox'])
-        anon = await browser.new_context()
+        anon = await browser.new_context(ignore_https_errors=args.test_tls)
         proof['stage'] = 'authentication'
         proof['authentication'] = {}
         for route in ['/paseo/setup/', '/paseo/assets/setup.js', '/api/paseo-bridge']:
@@ -47,16 +51,19 @@ async def verify(args, proof):
             proof['authentication'][route] = response.status
             require(response.status == 401, 'AUTH_BOUNDARY_FAILED')
         await anon.close()
-        context = await browser.new_context(http_credentials={**auth, 'origin': base}, viewport={'width': 1440, 'height': 1000})
+        context = await browser.new_context(http_credentials={**auth, 'origin': base}, viewport={'width': 1440, 'height': 1000}, ignore_https_errors=args.test_tls)
         page = await context.new_page()
         proof['stage'] = 'native-cards'
         await page.goto(base + '/plugins', wait_until='domcontentloaded')
         await page.locator('section.plugin-marketplace .plugin-marketplace__switch button').first.click()
         await page.get_by_test_id('plugins-tab-installed').click()
         proof['nativeCards'] = {}
-        for plugin, route in [('woow-cli-terminal', '/console/'), ('woow-mcp-server', '/mcp-admin/'), ('woow-paseo', '/paseo/setup/')]:
+        for plugin in launchers:
+            route = routes[plugin]
             card = page.get_by_test_id('plugins-card-' + plugin)
             await card.wait_for(state='visible', timeout=30000)
+            if plugin == 'woow-paseo':
+                await expect(card.get_by_text('Agent Connect', exact=True)).to_be_visible()
             link = card.locator('a[href="' + route + '"]')
             require(await link.count() == 1, 'NATIVE_LAUNCH_LINK_MISSING')
             require(await link.get_attribute('target') == '_blank', 'NEW_TAB_CONTRACT_FAILED')
@@ -67,7 +74,7 @@ async def verify(args, proof):
         proof['stage'] = 'setup-page'
         await setup.wait_for_load_state('domcontentloaded')
         require(setup.url == base + '/paseo/setup/', 'SETUP_ORIGIN_FAILED')
-        await setup.locator('h1').filter(has_text='Paseo 安裝與連線設定').wait_for()
+        await setup.locator('h1').filter(has_text='Agent Connect').wait_for()
         await expect(setup.locator('#refresh')).to_be_enabled()
         await setup.screenshot(path=str(private / 'native-setup.png'), full_page=True)
         deadline = time.monotonic() + 360
@@ -129,6 +136,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--private-dir', required=True)
     parser.add_argument('--chat', action='store_true')
+    parser.add_argument('--test-tls', action='store_true', help='Allow the disposable loopback QA certificate only.')
     parser.add_argument('--provider', action='append', choices=['claude', 'codex', 'pi'],
                         help='Limit acceptance to a provider; repeat for several. Default: all three.')
     args = parser.parse_args()

@@ -1,7 +1,7 @@
 {
   "name": "@woowtech/opendesign-cli-image",
-  "version": "0.2.3",
-  "description": "OpenDesign CLI image and optional native Paseo launcher service",
+  "version": "0.3.0",
+  "description": "OpenDesign CLI image and optional Agent Connect launcher powered by Paseo",
   "type": "module",
   "license": "MIT",
   "repository": {
@@ -52,7 +52,10 @@
     "docs/native-auth-verification-20261025.md",
     "docs/production-redeploy-verification-20261026.md",
     "host/ha-ingress.mjs",
-    "docs/ha-ingress.md"
+    "docs/ha-ingress.md",
+    "docs/agent-connect.md",
+    "scripts/prepare-managed-runtime.mjs",
+    "scripts/smoke-managed-runtime.mjs"
   ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",

@@ -1,19 +1,16 @@
 {
   "name": "pi-paseo-managed-runtime",
-  "version": "0.11.2-r1",
+  "version": "0.17.5-r1",
   "private": true,
   "dependencies": {
-    "@getpaseo/cli": "0.11.2"
+    "@getpaseo/cli": "0.17.5"
   },
   "overrides": {
     "@modelcontextprotocol/sdk": "1.32.2",
+    "@hono/node-server": "2.1.11",
+    "hono": "4.13.23",
     "markdown-it": "14.3.3",
-    "linkify-it": "5.0.2",
-    "@ai-sdk/provider-utils": "3.0.28",
     "ai": "5.0.207",
-    "uuid": "11.1.1",
-    "body-parser@1": "1.20.9",
-    "body-parser@2": "2.4.0",
-    "fast-uri": "3.1.9"
+    "uuid": "11.1.1"
   }
 }

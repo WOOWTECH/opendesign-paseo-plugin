@@ -3,6 +3,16 @@ on: [push, pull_request]
 permissions:
   contents: read
 jobs:
+  verify-agent-connect-image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Build the candidate on the reviewed OpenDesign core
+        run: docker build -f image/Dockerfile.agent-connect -t opendesign-agent-connect:test .
+      - name: Verify first activation offline without accounts or pairing
+        timeout-minutes: 5
+        run: docker run --rm --network none opendesign-agent-connect:test node /opt/opendesign-paseo/scripts/smoke-managed-runtime.mjs
   verify-image-contract:
     runs-on: ubuntu-latest
     steps:
