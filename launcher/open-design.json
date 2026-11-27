@@ -8,7 +8,7 @@
     "zh-CN": "Agent Connect",
     "zh-TW": "Agent Connect"
   },
-  "version": "0.3.0-rc.1",
+  "version": "0.3.0",
   "description": "Manage the underlying Paseo service and connect a supported Agent Connect client.",
   "description_i18n": {
     "en": "Manage the underlying Paseo service and connect a supported Agent Connect client.",

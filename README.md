@@ -2,7 +2,7 @@
 
 本 repo 提供預裝 Claude Code、Codex、Pi 的 OpenDesign 映像，以及使用 Paseo 執行環境的 **Agent Connect 原生外掛入口**。
 
-本分支的 `0.3.0-rc.1` 是升級驗收候選：目標為官方 Paseo CLI `0.17.5`，提供 Paseo、Woowtech Smart、Apporo Smart 三個明確的連線目標。版本、配對與實際對話的驗證分開記錄；候選分支不代表既有部署已更新。操作方式見 [Agent Connect 配對與升級](docs/agent-connect.md)。
+`0.3.0` 起，Agent Connect 以官方 Paseo CLI `0.17.5` 為底層，提供 Paseo、Woowtech Smart、Apporo Smart 三個明確的連線目標。版本、配對與實際對話的驗證分開記錄；套件本身不代表任何既有部署已更新，PaaS、Home Assistant、Podman 各自依自己的發行流程升級。操作方式見 [Agent Connect 配對與升級](docs/agent-connect.md)。
 
 ## Agent Connect 的 GUI 操作
 
