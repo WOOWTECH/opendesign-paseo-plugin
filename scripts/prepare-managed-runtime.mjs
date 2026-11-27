@@ -15,16 +15,35 @@ const install = spawnSync('npm', ['ci', '--prefix', root, '--omit=dev', '--ignor
 });
 if (install.status !== 0) throw new Error('LOCKED_RUNTIME_INSTALL_FAILED');
 const musl = process.platform === 'linux' && !process.report.getReport().header.glibcVersionRuntime;
+// node-gyp needs the headers of the Node running this build. Official Node images install them beside the binary
+// (<prefix>/include/node); pointing node-gyp there means nothing is downloaded. Otherwise it fetches them, and on
+// Alpine that is unofficial-builds.nodejs.org: a single distant host whose ~250 ms connect time from Asia races
+// Node's 250 ms per-address connect attempt, so fresh Podman installs and cluster image builds failed at random.
+// Used only when they are exactly this Node version; an explicit npm_config_nodedir from the caller still wins.
+function localNodeHeaders() {
+  const prefix = path.resolve(path.dirname(process.execPath), '..');
+  try {
+    const header = fs.readFileSync(path.join(prefix, 'include/node/node_version.h'), 'utf8');
+    const part = name => header.match(new RegExp(`^#define NODE_${name}_VERSION (\\d+)`, 'm'))?.[1];
+    const found = `v${part('MAJOR')}.${part('MINOR')}.${part('PATCH')}`;
+    return found === process.version && fs.existsSync(path.join(prefix, 'include/node/common.gypi')) ? prefix : null;
+  } catch { return null; }
+}
+const nodedir = process.env.npm_config_nodedir ? null : localNodeHeaders();
 {
   // node-pty ships a linux-x64 glibc prebuild under a libc-neutral directory.
   // It loads through gcompat on Alpine but crashes at the first PTY spawn.
   // Its supported installer flag removes that prebuild and builds for musl.
   // This is the only reviewed dependency whose lifecycle scripts may run.
   const rebuild = spawnSync('npm', ['rebuild', '--prefix', root, 'node-pty', '--ignore-scripts=false', '--no-audit', '--no-fund'], {
-    env: { ...process.env, ...(musl ? { npm_config_build_from_source: 'true' } : {}) },
+    env: { ...process.env, ...(musl ? { npm_config_build_from_source: 'true' } : {}), ...(nodedir ? { npm_config_nodedir: nodedir } : {}) },
     stdio: 'pipe', encoding: 'utf8', timeout: 600000, maxBuffer: 4 * 1024 * 1024,
   });
-  if (rebuild.status !== 0) throw new Error('NATIVE_NODE_PTY_BUILD_FAILED');
+  if (rebuild.status !== 0) {
+    // The cause (compiler, headers, network) is only in npm's own output: keep its end visible in the build log.
+    process.stderr.write(`${String(rebuild.stderr || rebuild.error || '').slice(-4000)}\n`);
+    throw new Error('NATIVE_NODE_PTY_BUILD_FAILED');
+  }
 }
 for (const name of ['cli', 'client', 'server', 'protocol']) {
   if (JSON.parse(fs.readFileSync(path.join(root, 'node_modules/@getpaseo', name, 'package.json'))).version !== PASEO_VERSION) throw new Error('RUNTIME_PACKAGE_VERSION_MISMATCH');
@@ -46,4 +65,4 @@ await new Promise((resolve, reject) => {
 markRuntimeReady(loc);
 if (!runtimeReady(loc)) throw new Error('RUNTIME_RECEIPT_NOT_READY');
 const lockSha256 = createHash('sha256').update(fs.readFileSync(path.join(runtimeDirectory(loc), 'package-lock.json'))).digest('hex');
-console.log(JSON.stringify({ version: PASEO_VERSION, revision: RUNTIME_REVISION, lockSha256, nativePty: true, nodePtyBuiltForMusl: musl, ready: true }));
+console.log(JSON.stringify({ version: PASEO_VERSION, revision: RUNTIME_REVISION, lockSha256, nativePty: true, nodePtyBuiltForMusl: musl, nodeHeaders: nodedir ? 'local' : 'npm', ready: true }));

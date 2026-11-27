@@ -8,8 +8,12 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Build the candidate on the reviewed OpenDesign core
-        run: docker build -f image/Dockerfile.agent-connect -t opendesign-agent-connect:test .
+      - name: Build the candidate on the reviewed OpenDesign core (Node header downloads blocked)
+        # node-pty must compile against the image's own Node headers. Downloading them from
+        # unofficial-builds.nodejs.org failed at random from Asia, so the build must not need that host.
+        run: >-
+          docker build -f image/Dockerfile.agent-connect -t opendesign-agent-connect:test
+          --add-host unofficial-builds.nodejs.org:127.0.0.1 --add-host nodejs.org:127.0.0.1 .
       - name: Verify first activation offline without accounts or pairing
         timeout-minutes: 5
         run: docker run --rm --network none opendesign-agent-connect:test node /opt/opendesign-paseo/scripts/smoke-managed-runtime.mjs

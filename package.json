@@ -1,6 +1,6 @@
 {
   "name": "@woowtech/opendesign-cli-image",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "OpenDesign CLI image and optional Agent Connect launcher powered by Paseo",
   "type": "module",
   "license": "MIT",
